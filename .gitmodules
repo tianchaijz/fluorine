@@ -1,0 +1,9 @@
+[submodule "snet"]
+	path = external/snet
+	url = https://bitbucket.org/tianchaijz/snet-mess
+[submodule "spdlog"]
+	path = external/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "rapidjson"]
+	path = external/rapidjson
+	url = https://github.com/miloyip/rapidjson.git
