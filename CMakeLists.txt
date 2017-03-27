@@ -19,9 +19,9 @@ set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
 set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/lib")
 
 find_package(Boost REQUIRED)
-find_library(BOOSTPO_LIBRARY NAMES boost_program_options)
-find_library(BOOSTTH_LIBRARY NAMES boost_thread)
-find_library(BOOSTSYS_LIBRARY NAMES boost_system)
+find_library(BOOSTPO_LIBRARY NAMES boost_program_options HINTS /usr/lib/x86_64-linux-gnu)
+find_library(BOOSTTH_LIBRARY NAMES boost_thread HINTS /usr/lib/x86_64-linux-gnu)
+find_library(BOOSTSYS_LIBRARY NAMES boost_system HINTS /usr/lib/x86_64-linux-gnu)
 
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
