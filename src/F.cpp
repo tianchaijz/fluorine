@@ -1,3 +1,4 @@
+#include <signal.h>
 #include <fstream>
 #include <functional>
 #include <boost/thread/thread.hpp>

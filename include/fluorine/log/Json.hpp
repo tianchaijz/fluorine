@@ -19,11 +19,12 @@
 
 namespace fluorine {
 namespace json {
+namespace qi = boost::spirit::qi;
+
 using namespace rapidjson;
 using namespace fluorine::log;
 using namespace fluorine::util;
 using namespace fluorine::config;
-using namespace boost::spirit;
 using std::string;
 
 typedef std::function<void(Writer<StringBuffer> &, string, string)> Handler;
