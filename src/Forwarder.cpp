@@ -15,7 +15,7 @@ Connection::Connection(std::unique_ptr<snet::Connection> connection)
   memset(recv_length_, 0, sizeof(recv_length_));
 
   connection_->SetOnError([this]() { HandleError(); });
-  connection_->SetOnReceivable([this]() { HandleReceivable(); });
+  connection_->SetOnReceivable([this]() { HandleRecv(); });
 }
 
 void Connection::SetErrorHandler(const ErrorHandler &error_handler) {
@@ -26,11 +26,7 @@ void Connection::SetDataHandler(const DataHandler &data_handler) {
   data_handler_ = data_handler;
 }
 
-int Connection::Send(std::unique_ptr<snet::Buffer> buffer) {
-  return SendBuffer(std::move(buffer));
-}
-
-int Connection::SendBuffer(std::unique_ptr<snet::Buffer> buffer) {
+bool Connection::Send(std::unique_ptr<snet::Buffer> buffer) {
   if (connection_->Send(std::move(buffer)) ==
       static_cast<int>(snet::SendE::Error)) {
     logger->error("send error");
@@ -43,7 +39,7 @@ int Connection::SendBuffer(std::unique_ptr<snet::Buffer> buffer) {
 
 void Connection::HandleError() { error_handler_(); }
 
-void Connection::HandleReceivable() {
+void Connection::HandleRecv() {
   if (recv_length_buffer_.pos < recv_length_buffer_.size) {
     auto ret = connection_->Recv(&recv_length_buffer_);
     if (ret == static_cast<int>(snet::RecvE::PeerClosed) ||
@@ -112,6 +108,10 @@ void Frontend::CreateTunnel() {
 }
 
 void Frontend::HandleTunnelError() {
+  if (ote_) {
+    ote_();
+  }
+
   enable_send_ = false;
   backend_reconnect_timer_.ExpireFromNow(snet::Seconds(1));
   backend_reconnect_timer_.SetOnTimeout([this]() { CreateTunnel(); });
@@ -120,6 +120,105 @@ void Frontend::HandleTunnelError() {
 void Frontend::HandleTunnelData(std::unique_ptr<snet::Buffer> data) {
   logger->error("received from tunnel: {}",
                 std::string(data->buf, data->buf + data->pos));
+}
+
+Client::Client(std::unique_ptr<snet::Connection> connection)
+    : connection_(std::move(connection)) {
+  connection_->SetOnError([this]() { HandleError(); });
+  connection_->SetOnReceivable([this]() { HandleRecv(); });
+};
+
+void Client::SetOnClose(const OnErrorClose &on_error_close) {
+  on_error_close_ = on_error_close;
+}
+
+void Client::SetDataHandler(const DataHandler &data_handler) {
+  data_handler_ = data_handler;
+}
+
+void Client::Close() { connection_->Close(); }
+
+void Client::HandleError() {
+  Close();
+  on_error_close_();
+}
+
+void Client::HandleRecv() {
+  std::unique_ptr<snet::Buffer> buffer(
+      new snet::Buffer(new char[kBufferSize], kBufferSize, snet::OpDeleter));
+
+  auto ret = connection_->Recv(buffer.get());
+  if (ret == static_cast<int>(snet::RecvE::NoAvailData))
+    return;
+
+  if (ret <= 0)
+    return HandleError();
+
+  buffer->size = ret;
+  data_handler_(std::move(buffer));
+}
+
+FrontendServer::FrontendServer(const std::string &ip, unsigned short port,
+                               snet::EventLoop *loop)
+    : enable_accept_(true), acceptor_(ip, port, loop) {
+  acceptor_.SetOnNewConnection(
+      [this](std::unique_ptr<snet::Connection> connection) {
+        HandleNewConnection(std::move(connection));
+      });
+}
+
+bool FrontendServer::IsListenOk() const { return acceptor_.IsListenOk(); }
+
+void FrontendServer::SetOnNewConnection(const OnNewConnection &onc) {
+  onc_ = onc;
+}
+
+void FrontendServer::DisableAccept() { enable_accept_ = false; }
+
+void FrontendServer::EnableAccept() { enable_accept_ = true; }
+
+void FrontendServer::HandleNewConnection(
+    std::unique_ptr<snet::Connection> connection) {
+  if (enable_accept_) {
+    onc_(std::unique_ptr<Client>(new Client(std::move(connection))));
+  }
+}
+
+FrontendTcp::FrontendTcp(const std::string &frontend_ip,
+                         unsigned short frontend_port,
+                         const std::string &backend_ip,
+                         unsigned short backend_port, snet::EventLoop *loop,
+                         snet::TimerList *timer_list)
+    : id_generator_(0), frontend_(backend_ip, backend_port, loop, timer_list),
+      server_(frontend_ip, frontend_port, loop) {
+  server_.DisableAccept();
+  server_.SetOnNewConnection([this](std::unique_ptr<Client> connection) {
+    HandleNewConn(std::move(connection));
+  });
+  frontend_.SetOnTunnelConnected([this]() { server_.EnableAccept(); });
+  frontend_.SetOnTunnelError([this]() { server_.DisableAccept(); });
+}
+
+bool FrontendTcp::IsListenOk() const { return server_.IsListenOk(); }
+
+void FrontendTcp::HandleNewConn(std::unique_ptr<Client> conn) {
+  auto id = ++id_generator_;
+  logger->info("new client: {}", id);
+  conn->SetOnClose([this, id]() { HandleConnClose(id); });
+  conn->SetDataHandler([this](std::unique_ptr<snet::Buffer> data) {
+    HandleConnData(std::move(data));
+  });
+  clients_.emplace(id, std::move(conn));
+}
+
+void FrontendTcp::HandleConnClose(unsigned long long id) {
+  clients_.erase(id);
+  logger->info("client closed: {}", id);
+}
+
+void FrontendTcp::HandleConnData(std::unique_ptr<snet::Buffer> data) {
+  logger->error("received from connection: {}",
+                std::string(data->buf, data->buf + data->size));
 }
 
 } // namespace forwarder

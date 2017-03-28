@@ -81,7 +81,15 @@ int main(int argc, char *argv[]) {
 
   InitIPResolver(opt.ip_db_path_);
 
-  if (!opt.IsTcpInput()) {
+  if (opt.IsTcpInput()) {
+    auto event_loop = snet::CreateEventLoop();
+    snet::TimerList timer_list;
+    snet::TimerDriver timer_driver(timer_list);
+    FrontendTcp ft(opt.frontend_ip_, opt.frontend_port_, opt.backend_ip_,
+                   opt.backend_port_, event_loop.get(), &timer_list);
+    event_loop->AddLoopHandler(&timer_driver);
+    event_loop->Loop();
+  } else {
     TimerGuard tg;
     boost::thread loop_thread(
         std::bind(loop, opt.backend_ip_, opt.backend_port_, std::cref(cfg)));
