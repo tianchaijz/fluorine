@@ -32,6 +32,11 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/spdlog/include)
 add_executable(F
     src/F.cpp
     )
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    SET(CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -static")
+endif()
+
 target_link_libraries(F fluorine snet)
 
 add_subdirectory(src)
