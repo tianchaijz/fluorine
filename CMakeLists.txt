@@ -18,6 +18,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
 set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/lib")
 
+set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED)
 find_library(BOOSTPO_LIBRARY NAMES boost_program_options HINTS /usr/lib/x86_64-linux-gnu)
 find_library(BOOSTTH_LIBRARY NAMES boost_thread HINTS /usr/lib/x86_64-linux-gnu)
