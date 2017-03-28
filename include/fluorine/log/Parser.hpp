@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <boost/spirit/include/qi.hpp>
 
 namespace fluorine {
@@ -14,7 +15,7 @@ typedef Field::const_iterator iterator_type;
 
 template <typename Iterator>
 struct Grammar : qi::grammar<Iterator, Log(), qi::space_type> {
-  Grammar(int fn = 0, int ti = 0)
+  Grammar(unsigned int fn = 0, unsigned int ti = 0)
       : Grammar::base_type(log), field_number(fn), time_index(ti) {
     using namespace qi;
 
@@ -46,11 +47,8 @@ private:
   unsigned int field_number, time_index;
 };
 
-bool ParseLog(iterator_type &begin, iterator_type &end, Log &log,
-              unsigned int field_number = 0, unsigned time_index = 0) {
-  Grammar<iterator_type> g(field_number, time_index);
-  return qi::phrase_parse(begin, end, g, qi::space, log);
-}
+bool ParseLog(std::string &line, Log &log, unsigned int field_number = 0,
+              unsigned int time_index = 0);
 
 } // namespace log
 } // namespace netease

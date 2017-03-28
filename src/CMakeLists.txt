@@ -1,4 +1,5 @@
 add_library(fluorine
+    Parser.cpp
     Forwarder.cpp
     Option.cpp
     util/IPResolver.cpp

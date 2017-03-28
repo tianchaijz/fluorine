@@ -1,8 +1,5 @@
 #pragma once
 
-#include <fstream>
-#include <iostream>
-
 #include <boost/spirit/include/qi.hpp>
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 
@@ -20,10 +17,6 @@ struct Attribute {
   const static std::string STORE;
   const static std::string ADD;
 };
-
-const std::string Attribute::IGNORE = "0";
-const std::string Attribute::STORE  = "1";
-const std::string Attribute::ADD    = "2";
 
 typedef std::vector<Attribute> Attributes;
 typedef std::string::const_iterator iterator_type;
@@ -70,36 +63,7 @@ private:
   qi::rule<Iterator, Config(), Skipper<Iterator>> config;
 };
 
-bool Parse(iterator_type &begin, iterator_type &end, Config &cfg) {
-  Grammar<iterator_type> g;
-  Skipper<iterator_type> skip;
-
-  return qi::phrase_parse(begin, end, g, skip, cfg);
-}
-
-bool ParseConfig(const std::string &path, Config &cfg) {
-  std::ifstream is(path);
-  std::stringstream buffer;
-
-  if (is.is_open()) {
-    buffer << is.rdbuf();
-    is.close();
-  } else {
-    std::cerr << "unable to open: " << path << std::endl;
-    return false;
-  }
-
-  std::string content = buffer.str();
-  iterator_type begin = content.begin(), end = content.end();
-
-  bool ok = Parse(begin, end, cfg);
-  if (!ok || begin != end) {
-    std::cerr << "parse failed" << std::endl;
-    return false;
-  }
-
-  return true;
-}
+bool ParseConfig(const std::string &path, Config &cfg);
 
 } // namespace config
 } // namespace fluorine

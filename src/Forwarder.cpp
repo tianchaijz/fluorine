@@ -91,6 +91,7 @@ bool Backend::Send(std::unique_ptr<snet::Buffer> buffer) {
 void Backend::HandleConnect(std::unique_ptr<snet::Connection> connection,
                             const OnConnected &onc) {
   if (connection) {
+    logger->info("connect to backend success");
     connection_.reset(new Connection(std::move(connection)));
     connection_->SetErrorHandler(error_handler_);
     connection_->SetDataHandler(data_handler_);
@@ -101,7 +102,7 @@ void Backend::HandleConnect(std::unique_ptr<snet::Connection> connection,
 }
 
 void Frontend::CreateTunnel() {
-  logger->warn("create new tunnel");
+  logger->warn("create new tunnel to {}:{}", backend_ip_, backend_port_);
   backend_.reset(new Backend(backend_ip_, backend_port_, loop_));
   backend_->SetErrorHandler([this]() { HandleTunnelError(); });
   backend_->SetDataHandler([this](std::unique_ptr<snet::Buffer> data) {
