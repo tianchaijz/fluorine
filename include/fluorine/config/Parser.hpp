@@ -1,6 +1,7 @@
 #pragma once
 
 #include <boost/spirit/include/qi.hpp>
+#include <boost/spirit/include/qi_optional.hpp>
 #include <boost/fusion/adapted/struct/adapt_struct.hpp>
 
 namespace fluorine {
@@ -21,12 +22,20 @@ struct Attribute {
 typedef std::vector<Attribute> Attributes;
 typedef std::string::const_iterator iterator_type;
 
+struct Aggregation {
+  std::string key_;
+  std::string time_;
+  int interval_;
+  boost::optional<std::vector<std::string>> fields_;
+};
+
 struct Config {
   std::string name_;
   int field_number_;
   int time_index_;
   int time_span_;
   Attributes attributes_;
+  boost::optional<Aggregation> aggregation_;
 };
 
 template <typename Iterator>
@@ -47,12 +56,14 @@ struct Grammar : qi::grammar<Iterator, Config(), Skipper<Iterator>> {
     name   = quoted | +char_("a-zA-Z0-9_");
     elem   = '[' >> (name % ',') >> ']';
 
-    attribute  = name >> ':' >> elem >> ';';
-    attributes = '{' >> *attribute >> '}';
-    config =
-        name >> '(' >> int_ >> ',' >> int_ >> ',' >> int_ >> ')' >> attributes;
+    attribute   = name >> ':' >> elem >> ';';
+    attributes  = '{' >> *attribute >> '}';
+    aggregation = '(' >> name >> ',' >> name >> ',' >> int_ >> ')' >>
+                  -('[' >> (name % ',') >> ']');
+    config = name >> '(' >> int_ >> ',' >> int_ >> ',' >> int_ >> ')' >>
+             attributes >> -aggregation;
 
-    BOOST_SPIRIT_DEBUG_NODES((name)(elem)(attribute)(attributes));
+    BOOST_SPIRIT_DEBUG_NODES((name)(elem)(attribute)(attributes)(aggregation));
   }
 
 private:
@@ -60,6 +71,7 @@ private:
   qi::rule<Iterator, std::vector<std::string>(), Skipper<Iterator>> elem;
   qi::rule<Iterator, Attribute(), Skipper<Iterator>> attribute;
   qi::rule<Iterator, Attributes(), Skipper<Iterator>> attributes;
+  qi::rule<Iterator, Aggregation(), Skipper<Iterator>> aggregation;
   qi::rule<Iterator, Config(), Skipper<Iterator>> config;
 };
 
@@ -73,8 +85,15 @@ BOOST_FUSION_ADAPT_STRUCT(fluorine::config::Config,
     (int, field_number_)
     (int, time_index_)
     (int, time_span_)
-    (fluorine::config::Attributes, attributes_))
+    (fluorine::config::Attributes, attributes_)
+    (boost::optional<fluorine::config::Aggregation>, aggregation_))
 
 BOOST_FUSION_ADAPT_STRUCT(fluorine::config::Attribute,
     (std::string, name_)
     (std::vector<std::string>, attribute_))
+
+BOOST_FUSION_ADAPT_STRUCT(fluorine::config::Aggregation,
+    (std::string, key_)
+    (std::string, time_)
+    (int, interval_)
+    (boost::optional<std::vector<std::string>>, fields_))

@@ -1,0 +1,34 @@
+/*
+* time_local -> millseconds
+* request -> "method, scheme, domain, uri"
+* ip -> "country, province, city, isp"
+*/
+
+access(9 /* field numer */, 4 /* time index */, 0 /* time span */) {
+    remote_addr:          [ip, 1 /* retain */];
+    _:                    [string, 0 /* ignore */];
+    remote_user:          [string, 0];
+    time_local:           [time_local, 1];
+    request:              [request, 1];
+    status:               [int, 1];
+    body_bytes_sent:      ["long long", 1];
+    http_referer:         [string, 0];
+    http_user_agent:      [string, 0];
+
+/* add those fields */
+    type:                 [string, 2 /* add */, "access" /* value */] /* three fields */;
+    id:                   [int, 2, 1];
+}
+
+(
+    "body_bytes_sent", /* key name */
+    "time_local", /* time field name */
+    1000 /* interval in millseconds */
+)
+
+/* aggregation fields */
+[
+    "status",
+    "remote_addr.isp",
+    "remote_addr.province"
+]

@@ -10,6 +10,7 @@
 #include <boost/fusion/adapted/std_tuple.hpp>
 
 #include "rapidjson/writer.h"
+#include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 
 #include "fluorine/Macros.hpp"
@@ -27,7 +28,7 @@ using namespace fluorine::util;
 using namespace fluorine::config;
 using std::string;
 
-typedef std::function<void(Writer<StringBuffer> &, string, string)> Handler;
+typedef std::function<void(Document &, string, string)> Handler;
 typedef std::unordered_map<string, Handler> Handlers;
 typedef std::tuple<string, string> Request;
 
@@ -44,57 +45,48 @@ private:
   qi::rule<Iterator, Request()> request;
 };
 
-inline void write_key(Writer<StringBuffer> &writer, string k) {
-  writer.Key(k.c_str(), k.size());
-};
-
-inline void write_string(Writer<StringBuffer> &writer, string v) {
-  writer.String(v.c_str(), v.size());
-};
-
-inline void string_handler(Writer<StringBuffer> &writer, string k, string v) {
-  writer.Key(k.c_str(), k.size());
-  writer.String(v.c_str(), v.size());
+inline void string_handler(Document &doc, string k, string v) {
+  Value key(k.c_str(), doc.GetAllocator()), val(v.c_str(), doc.GetAllocator());
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 }
 
 // int
-inline void int32_handler(Writer<StringBuffer> &writer, string k, string v) {
-  writer.Key(k.c_str(), k.size());
-  writer.Int(std::stoi(v));
+inline void int32_handler(Document &doc, string k, string v) {
+  Value key(k.c_str(), doc.GetAllocator()), val;
+  val.SetInt(std::stoi(v));
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 };
 
 // long long
-inline void int64_handler(Writer<StringBuffer> &writer, string k, string v) {
-  writer.Key(k.c_str(), k.size());
-  writer.Int64(std::stoll(v));
+inline void int64_handler(Document &doc, string k, string v) {
+  Value key(k.c_str(), doc.GetAllocator()), val;
+  val.SetInt64(std::stoll(v));
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 };
 
 // double
-inline void double_handler(Writer<StringBuffer> &writer, string k, string v) {
-  writer.Key(k.c_str(), k.size());
-  writer.Double(std::stod(v));
+inline void double_handler(Document &doc, string k, string v) {
+  Value key(k.c_str(), doc.GetAllocator()), val;
+  val.SetInt64(std::stod(v));
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 };
 
 // request handler, like: "GET http:://foo.com/bar"
-inline void request_handler(Writer<StringBuffer> &writer, string, string s) {
+inline void request_handler(Document &doc, string, string s) {
   RequestGrammar<> g;
   Request request;
   parse(s.begin(), s.end(), g, request);
 
-  writer.Key("method");
-  write_string(writer, std::get<0>(request));
-
-  writer.Key("domain");
-  write_string(writer, std::get<1>(request));
+  Value method(std::get<0>(request).c_str(), doc.GetAllocator());
+  Value domain(std::get<1>(request).c_str(), doc.GetAllocator());
+  doc.AddMember("method", method.Move(), doc.GetAllocator());
+  doc.AddMember("domain", domain.Move(), doc.GetAllocator());
 }
 
 // ip address handler
-inline void ip_handler(Writer<StringBuffer> &writer, string k, string v) {
-  write_key(writer, k);
-  writer.StartObject();
-
-  writer.Key("ip");
-  write_string(writer, v);
+inline void ip_handler(Document &doc, string k, string v) {
+  Value key(k.c_str(), doc.GetAllocator()), val(v.c_str(), doc.GetAllocator());
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
   char result[util::IPResolver::ResultLengthMax + 1];
   if (util::ResolveIP(v, result)) {
@@ -116,29 +108,19 @@ inline void ip_handler(Writer<StringBuffer> &writer, string k, string v) {
       fields[i] = string(s, e);
     }
 
-    writer.Key("country");
-    write_string(writer, fields[0]);
-
-    writer.Key("province");
-    write_string(writer, fields[1]);
-
-    writer.Key("city");
-    write_string(writer, fields[2]);
-
-    writer.Key("isp");
-    write_string(writer, fields[4]);
+    string_handler(doc, k + ".country", fields[0]);
+    string_handler(doc, k + ".province", fields[1]);
+    string_handler(doc, k + ".city", fields[2]);
+    string_handler(doc, k + ".isp", fields[4]);
   }
-
-  writer.EndObject();
 };
 
-inline void time_local_handler(Writer<StringBuffer> &writer, string k,
-                               string s) {
-  write_key(writer, k);
+inline void time_local_handler(Document &doc, string k, string s) {
   struct tm tm;
   strptime(s.c_str(), "%d/%b/%Y:%H:%M:%S %z", &tm);
-  time_t t = mktime(&tm);
-  writer.Int64(t);
+  Value key(k.c_str(), doc.GetAllocator()), val;
+  val.SetInt64(mktime(&tm));
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 }
 
 const Handlers handlers = {
@@ -148,56 +130,9 @@ const Handlers handlers = {
     {"request", request_handler},
 };
 
-void ToJson(Log &log, std::string &json, const Config &cfg) {
-  if (static_cast<int>(log.size()) != cfg.field_number_) {
-    fprintf(stderr, "invalid log, log fields: %lu, expected: %d\n", log.size(),
-            cfg.field_number_);
-    for (auto &field : log)
-      std::cerr << "<" << field << ">";
-    std::cerr << std::endl;
-    return;
-  }
-
-  StringBuffer sb;
-  Writer<StringBuffer> writer(sb);
-  writer.StartObject();
-
-  writer.Key("type");
-  write_string(writer, cfg.name_);
-
-  auto &attributes = cfg.attributes_;
-  for (size_t i = 0, j = 0; i < attributes.size(); ++i) {
-    auto attribute = attributes[i].attribute_;
-
-    if (attribute[1] == Attribute::IGNORE) {
-      ++j;
-      continue;
-    }
-
-    auto it = handlers.find(attribute[0]);
-    if (it == handlers.end()) {
-      std::cerr << "invalid attribute: " << attribute[0] << std::endl;
-      return;
-    }
-
-    int time_index = cfg.time_index_ - 1;
-    int time_span  = cfg.time_span_;
-
-    if (attribute[1] == Attribute::STORE && j < log.size()) {
-      if (static_cast<int>(j) == time_index && time_span > 0) {
-        it->second(writer, attributes[i].name_, log[j] + " " + log[j + 1]);
-        j += 2;
-      } else {
-        it->second(writer, attributes[i].name_, log[j++]);
-      }
-    } else if (attribute[1] == Attribute::ADD) {
-      it->second(writer, attributes[i].name_, attribute[2]);
-    }
-  }
-
-  writer.EndObject();
-  json = std::move(sb.GetString());
-}
+bool DocToString(Document *doc, std::string &json);
+bool PopulateJsonDoc(Document *doc, const Log &log, const Config &cfg);
+bool ToJsonString(Log &log, std::string &json, const Config &cfg);
 
 } // namespace json
 } // namespace fluorine
