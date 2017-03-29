@@ -82,7 +82,7 @@ int main(int argc, char *argv[]) {
   InitIPResolver(opt.ip_db_path_);
 
   if (opt.IsTcpInput()) {
-    auto event_loop = snet::CreateEventLoop();
+    auto event_loop = snet::CreateEventLoop(2000);
     snet::TimerList timer_list;
     snet::TimerDriver timer_driver(timer_list);
     FrontendTcp ft(opt.frontend_ip_, opt.frontend_port_, opt.backend_ip_,
