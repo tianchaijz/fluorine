@@ -10,7 +10,7 @@ namespace fluorine {
 namespace json {
 
 std::set<std::string> IPFields{"country", "province", "city", "isp"};
-std::set<std::string> RequestFields{"method", "domain"};
+std::set<std::string> RequestFields{"method", "scheme", "domain"};
 
 bool DocToString(Document *doc, std::string &json) {
   StringBuffer sb;

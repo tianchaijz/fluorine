@@ -28,9 +28,11 @@ access(9 /* field numer */, 4 /* time index */, 0 /* time span */) {
 
 /* aggregation fields */
 [
-    "status",
-    "domain",
     "method",
+    "scheme",
+    "domain",
+    "status",
+    "remote_addr.country",
     "remote_addr.province",
     "remote_addr.isp"
 ]

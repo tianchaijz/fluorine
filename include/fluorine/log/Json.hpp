@@ -34,18 +34,19 @@ extern std::set<std::string> RequestFields;
 
 typedef std::function<void(Document &, string, string)> Handler;
 typedef std::unordered_map<string, Handler> Handlers;
-typedef std::tuple<string, string> Request;
+typedef std::tuple<string, string, string> Request;
 
 template <typename Iterator = string::iterator>
 struct RequestGrammar : qi::grammar<Iterator, Request()> {
   RequestGrammar() : RequestGrammar::base_type(request) {
     using namespace qi;
-    request = +char_("A-Z") >> omit[+space] >>
-              -(lit("http") >> -lit('s') >> lit("://")) >>
-              (+~char_('/') | attr("unknown")) >> omit[*char_];
+    scheme  = hold[+char_("a-z") >> lit("://")] | attr("http");
+    request = +char_("A-Z") >> omit[+space] >> scheme >>
+              (+~char_(" /") | attr("unknown")) >> omit[*char_];
   }
 
 private:
+  qi::rule<Iterator, string()> scheme;
   qi::rule<Iterator, Request()> request;
 };
 
@@ -82,8 +83,10 @@ inline void request_handler(Document &doc, string, string s) {
   parse(s.begin(), s.end(), g, request);
 
   Value method(std::get<0>(request).c_str(), doc.GetAllocator());
-  Value domain(std::get<1>(request).c_str(), doc.GetAllocator());
+  Value scheme(std::get<1>(request).c_str(), doc.GetAllocator());
+  Value domain(std::get<2>(request).c_str(), doc.GetAllocator());
   doc.AddMember("method", method.Move(), doc.GetAllocator());
+  doc.AddMember("scheme", scheme.Move(), doc.GetAllocator());
   doc.AddMember("domain", domain.Move(), doc.GetAllocator());
 }
 
