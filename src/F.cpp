@@ -35,7 +35,9 @@ using LRUType = LRUCache<size_t, std::unique_ptr<Document>>;
 
 static auto logger = spdlog::stdout_color_st("F");
 static lockfree::spsc_queue<std::string, lockfree::capacity<8192>> queue;
-static bool done = false;
+static unsigned long long total = 0;
+static unsigned long long aggre = 0;
+static bool done                = false;
 
 void loop(std::string backend_ip, unsigned short backend_port,
           const Config &config) {
@@ -137,11 +139,14 @@ void agg(std::string backend_ip, unsigned short backend_port,
     frontend.Send(std::move(data));
   };
 
+  LRUType::OnInsert oi = [](std::unique_ptr<Document> &doc) {
+    if (!doc->HasMember("count")) {
+      doc->AddMember("count", 1LL, doc->GetAllocator());
+    }
+  };
+
   LRUType::OnAggregation oa = [agg_key](std::unique_ptr<Document> &lhs,
                                         std::unique_ptr<Document> &rhs) {
-    if (!lhs->HasMember("count")) {
-      lhs->AddMember("count", 1LL, lhs->GetAllocator());
-    }
     rapidjson::Value &count = (*lhs)["count"];
     count.SetInt64(count.GetInt64() + 1);
 
@@ -153,6 +158,9 @@ void agg(std::string backend_ip, unsigned short backend_port,
     while (!frontend.CanSend()) {
       boost::this_thread::sleep(boost::posix_time::milliseconds(1));
     }
+    rapidjson::Value &count = (*doc)["count"];
+    total += count.GetInt64();
+    ++aggre;
     send(doc);
   };
 
@@ -161,6 +169,10 @@ void agg(std::string backend_ip, unsigned short backend_port,
       while (!frontend.CanSend()) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(1));
       }
+
+      rapidjson::Value &count = (*p.second.first)["count"];
+      total += count.GetInt64();
+      ++aggre;
       send(p.second.first);
     }
   };
@@ -187,7 +199,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
     return seed;
   };
 
-  LRUType lru(300, oa, oe, oc);
+  LRUType lru(300, oi, oa, oe, oc);
   auto handler = [&frontend, &config, &hash, &lru, &clean_doc]() {
     std::string line;
     int interval = config.aggregation_->interval_;
@@ -292,9 +304,10 @@ int main(int argc, char *argv[]) {
       while (!queue.push(std::move(line)))
         ;
     }
-    logger->info("input complete");
     done = true;
     loop_thread.join();
+    logger->info("input: {}, handle: {}, agg: {}, {}%", i, total, aggre,
+                 aggre * 100.0 / total);
   }
 
   return 0;

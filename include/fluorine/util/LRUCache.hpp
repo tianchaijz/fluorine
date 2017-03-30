@@ -31,13 +31,14 @@ public:
                    std::pair<value_type, typename list_type::iterator>>
       map_type;
 
+  using OnInsert      = std::function<void(value_type &v)>;
   using OnAggregation = std::function<void(value_type &lhs, value_type &rhs)>;
   using OnClear       = std::function<void(map_type &m)>;
   using OnEvict       = std::function<void(value_type &v)>;
 
-  LRUCache(size_t capacity, OnAggregation oa = nullptr, OnEvict oe = nullptr,
-           OnClear oc = nullptr)
-      : m_capacity(capacity), m_oa(oa), m_oe(oe), m_oc(oc) {}
+  LRUCache(size_t capacity, OnInsert oi = nullptr, OnAggregation oa = nullptr,
+           OnEvict oe = nullptr, OnClear oc = nullptr)
+      : m_capacity(capacity), m_oi(oi), m_oa(oa), m_oe(oe), m_oc(oc) {}
 
   ~LRUCache() {}
 
@@ -56,6 +57,10 @@ public:
       if (size() >= m_capacity) {
         // cache is full, evict the least recently used item
         evict();
+      }
+
+      if (m_oi) {
+        m_oi(value);
       }
 
       // insert the new item
@@ -121,6 +126,7 @@ private:
   map_type m_map;
   list_type m_list;
   size_t m_capacity;
+  OnInsert m_oi;
   OnAggregation m_oa;
   OnEvict m_oe;
   OnClear m_oc;
