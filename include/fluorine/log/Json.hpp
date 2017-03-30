@@ -1,5 +1,6 @@
 #pragma once
 
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <functional>
@@ -27,6 +28,9 @@ using namespace fluorine::log;
 using namespace fluorine::util;
 using namespace fluorine::config;
 using std::string;
+
+extern std::set<std::string> IPFields;
+extern std::set<std::string> RequestFields;
 
 typedef std::function<void(Document &, string, string)> Handler;
 typedef std::unordered_map<string, Handler> Handlers;

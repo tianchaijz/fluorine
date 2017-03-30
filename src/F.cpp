@@ -109,10 +109,25 @@ void agg(std::string backend_ip, unsigned short backend_port,
     logger->info("store filed: {}", *it);
   }
 
-  for (auto &attr : config.attributes_) {
+  auto ignore = [&store_set, &ignore_set](const Attribute &attr,
+                                          std::string name) {
     if (attr.attribute_[1] == Attribute::STORE &&
-        store_set.find(attr.name_) == store_set.end()) {
-      ignore_set.insert(attr.name_);
+        store_set.find(name) == store_set.end()) {
+      ignore_set.insert(name);
+    }
+  };
+
+  for (const auto &attr : config.attributes_) {
+    if (attr.attribute_[0] == "ip") {
+      for (auto field : IPFields) {
+        ignore(attr, attr.name_ + "." + field);
+      }
+    } else if (attr.attribute_[0] == "request") {
+      for (auto field : RequestFields) {
+        ignore(attr, field);
+      }
+    } else {
+      ignore(attr, attr.name_);
     }
   }
 

@@ -9,6 +9,9 @@ static auto logger = spdlog::stdout_color_st("Json");
 namespace fluorine {
 namespace json {
 
+std::set<std::string> IPFields{"country", "province", "city", "isp"};
+std::set<std::string> RequestFields{"method", "domain"};
+
 bool DocToString(Document *doc, std::string &json) {
   StringBuffer sb;
   Writer<StringBuffer> writer(sb);
