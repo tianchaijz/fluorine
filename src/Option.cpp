@@ -28,9 +28,10 @@ void ParseOption(int argc, char *argv[], Option &opt) {
     options_description desc("Usage");
     desc.add_options()
       ("help,h", "print usage message")
-      ("config,c", value(&opt.config_path_)->required(), "config file path")
+      ("config,c", value(&opt.config_path_), "config file path")
       ("log,l", value(&opt.log_path_), "log file path")
       ("db,d", value(&opt.ip_db_path_)->default_value("/opt/17monipdb.dat"), "ip database path")
+      ("redis,r", value(&opt.redis_input_)->default_value("127.0.0.1:6379"), "redis input")
       ("tcp,t", bool_switch(&opt.tcp_input_), "tcp input")
       ("listen-ip", value(&opt.frontend_ip_)->default_value("127.0.0.1"), "listen ip")
       ("listen-port", value(&opt.frontend_port_)->default_value(5565), "listen port")

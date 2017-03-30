@@ -8,6 +8,7 @@ struct Option {
   std::string config_path_;
   std::string log_path_;
   std::string ip_db_path_;
+  std::string redis_input_;
   bool tcp_input_ = false;
 
   std::string frontend_ip_;

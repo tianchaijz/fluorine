@@ -20,6 +20,7 @@ BASE_FLAGS = [
     '-I/usr/lib/',
     '-I/usr/local/lib/',
     '-I{}/external'.format(cwd),
+    '-I{}/external/fmt'.format(cwd),
     '-I{}/external/rapidjson/include'.format(cwd),
     '-I{}/external/spdlog/include'.format(cwd),
     '-I{}/include'.format(cwd),

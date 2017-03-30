@@ -27,8 +27,25 @@ find_library(BOOSTSYS_LIBRARY NAMES boost_system HINTS /usr/lib/x86_64-linux-gnu
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/fmt)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/rapidjson/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/spdlog/include)
+
+set(HIREDIS_LIBRARY ${CMAKE_CURRENT_SOURCE_DIR}/external/hiredis/libhiredis.a)
+add_custom_target(build_hiredis ALL
+    COMMAND ${CMAKE_MAKE_PROGRAM}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/hiredis
+    COMMENT "Built hiredis")
+add_library(hiredis STATIC IMPORTED)
+set_property(TARGET hiredis APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
+set_target_properties(hiredis PROPERTIES
+    IMPORTED_LOCATION_NOCONFIG "${HIREDIS_LIBRARY}")
+add_dependencies(hiredis build_hiredis)
+
+add_executable(R
+    src/R.cpp
+    )
+target_link_libraries(R fluorine fmt)
 
 add_executable(T
     src/T.cpp
@@ -45,4 +62,5 @@ endif()
 target_link_libraries(F fluorine snet)
 
 add_subdirectory(src)
+add_subdirectory(external/fmt)
 add_subdirectory(external/snet)

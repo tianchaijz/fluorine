@@ -17,3 +17,5 @@ CMakeScripts/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+
+dump.rdb
