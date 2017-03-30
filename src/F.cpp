@@ -1,4 +1,5 @@
 #include <signal.h>
+#include <stdint.h>
 #include <fstream>
 #include <algorithm>
 #include <functional>
@@ -156,7 +157,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
 
   LRUType::OnInsert oi = [](std::unique_ptr<Document> &doc) {
     if (!doc->HasMember("count")) {
-      doc->AddMember("count", 1LL, doc->GetAllocator());
+      doc->AddMember("count", int64_t(1), doc->GetAllocator());
     }
   };
 
