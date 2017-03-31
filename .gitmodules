@@ -10,3 +10,6 @@
 [submodule "hiredis"]
 	path = external/hiredis
 	url = https://github.com/redis/hiredis.git
+[submodule "fmt"]
+	path = external/fmt
+	url = https://github.com/fmtlib/fmt.git
