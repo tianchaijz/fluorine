@@ -23,11 +23,7 @@ find_package(Boost REQUIRED)
 find_library(BOOSTPO_LIBRARY NAMES boost_program_options HINTS /usr/lib/x86_64-linux-gnu)
 find_library(BOOSTSYS_LIBRARY NAMES boost_system HINTS /usr/lib/x86_64-linux-gnu)
 find_library(BOOSTIOS_LIBRARY NAMES boost_iostreams HINTS /usr/lib/x86_64-linux-gnu)
-if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    find_library(BOOSTTH_LIBRARY NAMES boost_thread-mt HINTS /usr/lib/x86_64-linux-gnu)
-elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    find_library(BOOSTTH_LIBRARY NAMES boost_thread HINTS /usr/lib/x86_64-linux-gnu)
-endif()
+find_library(BOOSTTH_LIBRARY NAMES boost_thread boost_thread-mt HINTS /usr/lib/x86_64-linux-gnu)
 
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -59,7 +55,7 @@ add_executable(T
 add_executable(G
     src/G.cpp
     )
-target_link_libraries(G ${BOOSTIOS_LIBRARY})
+target_link_libraries(G ${BOOSTIOS_LIBRARY} z)
 
 add_executable(F
     src/F.cpp
