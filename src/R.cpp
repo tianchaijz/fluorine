@@ -43,7 +43,7 @@ void outputReply(RedisReply &reply) {
 }
 
 int main(int argc, char **argv) {
-  Redis redis(new Connection("127.0.0.1", 6379));
+  Redis redis(new RedisConnection("127.0.0.1", 6379));
 
   auto reply = redis->RedisCommand("INFO");
   std::cout << reply->str << std::endl;

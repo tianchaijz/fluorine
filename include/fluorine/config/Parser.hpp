@@ -75,6 +75,7 @@ private:
   qi::rule<Iterator, Config(), Skipper<Iterator>> config;
 };
 
+bool ParseConfig(const char *str, Config &cfg);
 bool ParseConfig(const std::string &path, Config &cfg);
 
 } // namespace config

@@ -22,7 +22,7 @@ bool DocToString(Document *doc, std::string &json) {
 }
 
 bool PopulateJsonDoc(Document *doc, const Log &log, const Config &cfg) {
-  if (static_cast<int>(log.size()) != cfg.field_number_) {
+  if (cfg.field_number_ && static_cast<int>(log.size()) != cfg.field_number_) {
     logger->error("invalid log, log fields: {}, expected: {}", log.size(),
                   cfg.field_number_);
     for (auto &field : log)

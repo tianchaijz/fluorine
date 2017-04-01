@@ -31,13 +31,13 @@ struct RedisReplyDeleter {
 typedef std::unique_ptr<redisReply, RedisReplyDeleter> RedisReply;
 typedef std::unique_ptr<redisContext, RedisContextDeleter> RedisContext;
 
-class Connection {
+class RedisConnection {
 public:
-  Connection(std::string host, int port)
+  RedisConnection(std::string host, int port)
       : host_(host), port_(port), state_(kDisconnected), timeout_us_(1000000),
         reconnect_interval_ms_(1000) {}
 
-  ~Connection() { ShutDown(); }
+  ~RedisConnection() { ShutDown(); }
 
   void StartUp();
   void ShutDown();
@@ -47,7 +47,7 @@ public:
 private:
   enum State { kShutDown, kDisconnected, kConnected };
   RedisContext TryConnect();
-  void EnsureConnection();
+  void EnsureRedisConnection();
   void UpdateState();
   std::string ToString() { return host_ + ":" + std::to_string(port_); }
 
@@ -60,10 +60,10 @@ private:
   const int64_t timeout_us_;
   const int64_t reconnect_interval_ms_;
 
-  DISALLOW_COPY_AND_ASSIGN(Connection);
+  DISALLOW_COPY_AND_ASSIGN(RedisConnection);
 };
 
-typedef std::unique_ptr<Connection> Redis;
+typedef std::unique_ptr<RedisConnection> Redis;
 
 } // namespace redis
 } // namespace util

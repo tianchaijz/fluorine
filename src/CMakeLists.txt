@@ -7,4 +7,4 @@ add_library(fluorine
     util/IPResolver.cpp
     )
 
-target_link_libraries(fluorine snet hiredis ${BOOSTTH_LIBRARY} ${BOOSTSYS_LIBRARY} ${BOOSTPO_LIBRARY})
+target_link_libraries(fluorine fmt snet hiredis ${BOOSTTH_LIBRARY} ${BOOSTSYS_LIBRARY} ${BOOSTPO_LIBRARY} ${BOOSTIOS_LIBRARY})

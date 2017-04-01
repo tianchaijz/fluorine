@@ -6,7 +6,11 @@
 #include <boost/functional/hash.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
 
+#include "fmt/format.h"
 #include "spdlog/spdlog.h"
 #include "snet/EventLoop.h"
 #include "snet/Timer.h"
@@ -20,6 +24,7 @@
 #include "fluorine/config/Parser.hpp"
 #include "fluorine/util/LRUCache.hpp"
 #include "fluorine/util/IPResolver.hpp"
+#include "fluorine/util/Redis.hpp"
 
 using namespace fluorine;
 using namespace fluorine::log;
@@ -27,6 +32,7 @@ using namespace fluorine::util;
 using namespace fluorine::json;
 using namespace fluorine::config;
 using namespace fluorine::forwarder;
+using namespace fluorine::util::redis;
 using Value    = rapidjson::Value;
 using Document = rapidjson::Document;
 
@@ -36,6 +42,7 @@ using LRUType = LRUCache<size_t, std::unique_ptr<Document>>;
 
 static auto logger = spdlog::stdout_color_st("F");
 static lockfree::spsc_queue<std::string, lockfree::capacity<8192>> queue;
+static unsigned long long lines = 0;
 static unsigned long long total = 0;
 static unsigned long long aggre = 0;
 static bool done                = false;
@@ -216,7 +223,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
     return seed;
   };
 
-  LRUType lru(300, oi, oa, oe, oc);
+  LRUType lru(3600, oi, oa, oe, oc);
   auto handler = [&frontend, &config, &hash, &lru, &clean_doc]() {
     std::string line;
     int interval = config.aggregation_->interval_;
@@ -261,33 +268,103 @@ void agg(std::string backend_ip, unsigned short backend_port,
   event_loop->Loop();
 }
 
+template <typename T>
+inline void produce(T &is) {
+  std::string line;
+  while (std::getline(is, line)) {
+    ++lines;
+    if (lines % 100000 == 0) {
+      logger->info("input lines: {}", lines);
+    }
+    while (!queue.push(std::move(line)))
+      ;
+  }
+}
+
+void producer(std::string path) {
+  std::ifstream is(path);
+  if (!is.is_open()) {
+    logger->error("cannot open: {}", path);
+    return;
+  }
+
+  produce(is);
+}
+
+void gzip_producer(std::string path) {
+  namespace bio = boost::iostreams;
+  try {
+    std::ifstream is(path, std::ios_base::in | std::ios_base::binary);
+    if (!is.is_open()) {
+      logger->error("cannot open: {}", path);
+      return;
+    }
+
+    boost::iostreams::filtering_stream<bio::input> in;
+    in.push(bio::gzip_decompressor());
+    in.push(is);
+
+    produce(in);
+  } catch (const boost::iostreams::gzip_error &e) {
+    logger->error("{} gzip error: {}", path, e.what());
+  }
+}
+
+void cycle(std::string path, Option &opt, Config &cfg) {
+  TimerGuard tg;
+  boost::thread loop_thread;
+  if (cfg.aggregation_) {
+    loop_thread = boost::thread(
+        std::bind(agg, opt.backend_ip_, opt.backend_port_, std::cref(cfg)));
+  } else {
+    loop_thread = boost::thread(
+        std::bind(loop, opt.backend_ip_, opt.backend_port_, std::cref(cfg)));
+  }
+
+  if (boost::algorithm::ends_with(path, ".gz")) {
+    gzip_producer(path);
+  } else {
+    producer(path);
+  }
+
+  done = true;
+  loop_thread.join();
+  logger->info("input: {}, handle: {}, aggregation: {}, {}%", lines, total,
+               aggre, total == 0 ? 0 : aggre * 100.0 / total);
+}
+
+void fix_config(Config &cfg, bool see = false) {
+  if (!cfg.aggregation_) {
+    return;
+  }
+
+  auto agg = cfg.aggregation_;
+  for (auto &attr : cfg.attributes_) {
+    if (attr.name_ == agg->time_) {
+      attr.attribute_[1] = Attribute::STORE;
+    }
+  }
+
+  if (!see) {
+    return;
+  }
+
+  auto info = fmt::format("aggregation: {}, {}, {}", agg->key_, agg->time_,
+                          agg->interval_);
+  std::cout << info << std::endl;
+  if (agg->fields_) {
+    for (auto f : *agg->fields_) {
+      std::cout << fmt::format("{}, ", f);
+    }
+    std::cout << std::endl;
+  }
+}
+
 int main(int argc, char *argv[]) {
   signal(SIGPIPE, SIG_IGN);
 
   Option opt;
   ParseOption(argc, argv, opt);
-
-  Config cfg;
-  if (!ParseConfig(opt.config_path_, cfg)) {
-    return 1;
-  }
-
-  if (cfg.aggregation_) {
-    auto agg = cfg.aggregation_;
-    for (auto &attr : cfg.attributes_) {
-      if (attr.name_ == agg->time_) {
-        attr.attribute_[1] = Attribute::STORE;
-      }
-    }
-
-    std::cout << agg->key_ << "," << agg->time_ << "," << agg->interval_
-              << std::endl;
-    if (agg->fields_) {
-      for (auto f : *agg->fields_) {
-        std::cout << f << std::endl;
-      }
-    }
-  }
 
   InitIPResolver(opt.ip_db_path_);
 
@@ -299,32 +376,46 @@ int main(int argc, char *argv[]) {
                    opt.backend_port_, event_loop.get(), &timer_list);
     event_loop->AddLoopHandler(&timer_driver);
     event_loop->Loop();
-  } else {
-    TimerGuard tg;
-    boost::thread loop_thread;
-    if (cfg.aggregation_) {
-      loop_thread = boost::thread(
-          std::bind(agg, opt.backend_ip_, opt.backend_port_, std::cref(cfg)));
-    } else {
-      loop_thread = boost::thread(
-          std::bind(loop, opt.backend_ip_, opt.backend_port_, std::cref(cfg)));
-    }
+  } else if (opt.IsRedisInput()) {
+    auto address = opt.GetRedisAddress();
+    auto redis   = Redis(new RedisConnection(address.first, address.second));
+    for (;;) {
+      auto reply =
+          redis->RedisCommand(fmt::format("LPOP {}", opt.redis_queue_));
+      if (reply && reply->type == REDIS_REPLY_STRING) {
+        rapidjson::Document doc;
+        doc.Parse(reply->str);
 
-    std::ifstream is(opt.log_path_);
-    std::string line;
-    int i = 0;
-    while (std::getline(is, line)) {
-      ++i;
-      if (i % 10000 == 0) {
-        logger->info("input lines: {}", i);
+        Value &path = doc[0];
+        Value &slot = doc[1];
+
+        reply = redis->RedisCommand(
+            fmt::format("HGET Log:Config {}", slot.GetString()));
+
+        if (!reply || reply->type != REDIS_REPLY_STRING) {
+          continue;
+        }
+
+        Config cfg;
+        if (!ParseConfig(reply->str, cfg)) {
+          logger->error("invalid config got from redis");
+          continue;
+        }
+
+        fix_config(cfg);
+        done = false;
+        cycle(path.GetString(), opt, cfg);
+      } else {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
       }
-      while (!queue.push(std::move(line)))
-        ;
     }
-    done = true;
-    loop_thread.join();
-    logger->info("input: {}, handle: {}, agg: {}, {}%", i, total, aggre,
-                 aggre * 100.0 / total);
+  } else {
+    Config cfg;
+    if (!ParseConfig(opt.config_path_, cfg)) {
+      return 1;
+    }
+    fix_config(cfg);
+    cycle(opt.log_path_, opt, cfg);
   }
 
   return 0;

@@ -10,9 +10,9 @@ namespace fluorine {
 namespace util {
 namespace redis {
 
-void Connection::StartUp() { EnsureConnection(); }
+void RedisConnection::StartUp() { EnsureRedisConnection(); }
 
-void Connection::ShutDown() {
+void RedisConnection::ShutDown() {
   if (state_ == kShutDown)
     return;
 
@@ -20,7 +20,7 @@ void Connection::ShutDown() {
   state_ = kShutDown;
 }
 
-RedisContext Connection::TryConnect() {
+RedisContext RedisConnection::TryConnect() {
   struct timeval timeout;
   timeout.tv_sec  = timeout_us_ / 1000000;
   timeout.tv_usec = timeout_us_ % 1000000;
@@ -40,7 +40,7 @@ RedisContext Connection::TryConnect() {
   return nullptr;
 }
 
-void Connection::EnsureConnection() {
+void RedisConnection::EnsureRedisConnection() {
   if (state_ == kConnected) {
     return;
   }
@@ -58,7 +58,7 @@ void Connection::EnsureConnection() {
   }
 }
 
-void Connection::UpdateState() {
+void RedisConnection::UpdateState() {
   // Quoting hireds documentation: "once an error is returned the context cannot
   // be reused and you should set up a new connection".
   if (redis_ != nullptr && redis_->err == REDIS_OK) {
@@ -70,8 +70,8 @@ void Connection::UpdateState() {
   }
 }
 
-RedisReply Connection::RedisCommand(const std::string &cmd) {
-  EnsureConnection();
+RedisReply RedisConnection::RedisCommand(const std::string &cmd) {
+  EnsureRedisConnection();
 
   void *result = redisCommand(redis_.get(), cmd.c_str());
   auto reply   = RedisReply(static_cast<redisReply *>(result));

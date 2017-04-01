@@ -31,6 +31,25 @@ const std::string Attribute::IGNORE = "0";
 const std::string Attribute::STORE  = "1";
 const std::string Attribute::ADD    = "2";
 
+static bool parseConfig(const std::string &content, Config &cfg) {
+  Grammar<iterator_type> g;
+  Skipper<iterator_type> skip;
+  iterator_type begin = content.begin(), end = content.end();
+
+  bool ok = qi::phrase_parse(begin, end, g, skip, cfg);
+  if (!ok || begin != end) {
+    logger->error("config parse failed, remaining unparsed: {}",
+                  std::string(begin, end));
+    return false;
+  }
+
+  return true;
+}
+
+bool ParseConfig(const char *str, Config &cfg) {
+  return parseConfig(std::string(str), cfg);
+}
+
 bool ParseConfig(const std::string &path, Config &cfg) {
   std::ifstream is(path);
   std::stringstream buffer;
@@ -43,19 +62,7 @@ bool ParseConfig(const std::string &path, Config &cfg) {
     return false;
   }
 
-  Grammar<iterator_type> g;
-  Skipper<iterator_type> skip;
-  std::string content = buffer.str();
-  iterator_type begin = content.begin(), end = content.end();
-
-  bool ok = qi::phrase_parse(begin, end, g, skip, cfg);
-  if (!ok || begin != end) {
-    logger->error("config parse failed, remaining unparsed: {}",
-                  std::string(begin, end));
-    return false;
-  }
-
-  return true;
+  return parseConfig(buffer.str(), cfg);
 }
 
 } // namespace config
