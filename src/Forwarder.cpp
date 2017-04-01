@@ -119,7 +119,7 @@ void Frontend::HandleTunnelError() {
 
 void Frontend::HandleTunnelData(std::unique_ptr<snet::Buffer> data) {
   logger->error("received from tunnel: {}",
-                std::string(data->buf, data->buf + data->pos));
+                std::string(data->buf, data->buf + data->size));
 }
 
 Client::Client(std::unique_ptr<snet::Connection> connection)
