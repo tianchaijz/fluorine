@@ -120,6 +120,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
 
   for (const auto &attr : config.attributes_) {
     if (attr.attribute_[0] == "ip") {
+      ignore(attr, attr.name_);
       for (auto field : IPFields) {
         ignore(attr, attr.name_ + "." + field);
       }
