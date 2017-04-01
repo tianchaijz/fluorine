@@ -58,21 +58,42 @@ inline void string_handler(Document &doc, string k, string v) {
 // int
 inline void int32_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val;
-  val.SetInt(std::stoi(v));
+  int num;
+  try {
+    num = std::stoi(v);
+  } catch (const std::exception &e) {
+    std::cerr << "int32 error: " << v << std::endl;
+    num = 0;
+  }
+  val.SetInt(num);
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 };
 
 // long long
 inline void int64_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val;
-  val.SetInt64(std::stoll(v));
+  int64_t num;
+  try {
+    num = std::stoll(v);
+  } catch (const std::exception &e) {
+    std::cerr << "int64 error: " << v << std::endl;
+    num = 0;
+  }
+  val.SetInt64(num);
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 };
 
 // double
 inline void double_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val;
-  val.SetInt64(std::stod(v));
+  double num;
+  try {
+    num = std::stod(v);
+  } catch (const std::exception &e) {
+    std::cerr << "double error: " << v << std::endl;
+    num = 0.0;
+  }
+  val.SetDouble(num);
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 };
 
