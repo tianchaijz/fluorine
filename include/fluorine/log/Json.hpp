@@ -136,10 +136,10 @@ inline void ip_handler(Document &doc, string k, string v) {
       fields[i] = string(s, e);
     }
 
-    string_handler(doc, k + ".country", fields[0]);
-    string_handler(doc, k + ".province", fields[1]);
-    string_handler(doc, k + ".city", fields[2]);
-    string_handler(doc, k + ".isp", fields[4]);
+    string_handler(doc, k + "@country", fields[0]);
+    string_handler(doc, k + "@province", fields[1]);
+    string_handler(doc, k + "@city", fields[2]);
+    string_handler(doc, k + "@isp", fields[4]);
   }
 };
 

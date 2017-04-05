@@ -129,7 +129,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
     if (attr.attribute_[0] == "ip") {
       ignore(attr, attr.name_);
       for (auto field : IPFields) {
-        ignore(attr, attr.name_ + "." + field);
+        ignore(attr, attr.name_ + "@" + field);
       }
     } else if (attr.attribute_[0] == "request") {
       for (auto field : RequestFields) {
@@ -214,7 +214,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
         else if (v.IsDouble())
           hash_combine(seed, v.GetDouble());
         else {
-          logger->error("unexpected type");
+          logger->error("unexpected type: {}", v.GetType());
           assert(false);
         }
       }
