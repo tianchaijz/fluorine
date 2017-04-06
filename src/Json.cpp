@@ -54,13 +54,19 @@ bool PopulateJsonDoc(Document *doc, const Log &log, const Config &cfg) {
 
     if (attribute[1] == Attribute::STORE && j < log.size()) {
       if (static_cast<int>(j) == time_index && time_span > 0) {
-        it->second(*doc, attributes[i].name_, log[j] + " " + log[j + 1]);
+        if (!it->second(*doc, attributes[i].name_, log[j] + " " + log[j + 1])) {
+          return false;
+        }
         j += 2;
       } else {
-        it->second(*doc, attributes[i].name_, log[j++]);
+        if (!it->second(*doc, attributes[i].name_, log[j++])) {
+          return false;
+        }
       }
     } else if (attribute[1] == Attribute::ADD) {
-      it->second(*doc, attributes[i].name_, attribute[2]);
+      if (!it->second(*doc, attributes[i].name_, attribute[2])) {
+        return false;
+      }
     }
   }
 

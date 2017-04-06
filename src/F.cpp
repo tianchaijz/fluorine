@@ -251,6 +251,8 @@ void agg(std::string backend_ip, unsigned short backend_port,
           } else {
             ++bad;
           }
+        } else {
+          ++bad;
         }
       }
     }

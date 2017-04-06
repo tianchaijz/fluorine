@@ -33,7 +33,7 @@ using std::string;
 extern std::set<std::string> IPFields;
 extern std::set<std::string> RequestFields;
 
-typedef std::function<void(Document &, string, string)> Handler;
+typedef std::function<bool(Document &, string, string)> Handler;
 typedef std::unordered_map<string, Handler> Handlers;
 typedef std::tuple<string, string, string> Request;
 
@@ -51,58 +51,69 @@ private:
   qi::rule<Iterator, Request()> request;
 };
 
-inline void string_handler(Document &doc, string k, string v) {
+inline bool string_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val(v.c_str(), doc.GetAllocator());
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+  return true;
 }
 
 // int
-inline void int32_handler(Document &doc, string k, string v) {
+inline bool int32_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val;
   int num;
   try {
     num = std::stoi(v);
   } catch (const std::exception &e) {
     std::cerr << "int32 error: " << v << std::endl;
-    num = 0;
+    return false;
   }
   val.SetInt(num);
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+  return true;
 };
 
 // long long
-inline void int64_handler(Document &doc, string k, string v) {
+inline bool int64_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val;
   int64_t num;
   try {
     num = std::stoll(v);
   } catch (const std::exception &e) {
     std::cerr << "int64 error: " << v << std::endl;
-    num = 0;
+    return false;
   }
   val.SetInt64(num);
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+  return true;
 };
 
 // double
-inline void double_handler(Document &doc, string k, string v) {
+inline bool double_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val;
   double num;
   try {
     num = std::stod(v);
   } catch (const std::exception &e) {
     std::cerr << "double error: " << v << std::endl;
-    num = 0.0;
+    return false;
   }
   val.SetDouble(num);
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+  return true;
 };
 
 // request handler, like: "GET http:://foo.com/bar"
-inline void request_handler(Document &doc, string, string s) {
+inline bool request_handler(Document &doc, string, string s) {
   RequestGrammar<> g;
   Request request;
-  parse(s.begin(), s.end(), g, request);
+  auto begin = s.begin();
+  auto end   = s.end();
+
+  bool ok = parse(begin, end, g, request);
+  if (!ok || begin != end) {
+    std::cerr << "parse request failed: " << s << std::endl;
+    return false;
+  }
 
   Value method(std::get<0>(request).c_str(), doc.GetAllocator());
   Value scheme(std::get<1>(request).c_str(), doc.GetAllocator());
@@ -110,10 +121,12 @@ inline void request_handler(Document &doc, string, string s) {
   doc.AddMember("method", method.Move(), doc.GetAllocator());
   doc.AddMember("scheme", scheme.Move(), doc.GetAllocator());
   doc.AddMember("domain", domain.Move(), doc.GetAllocator());
+
+  return true;
 }
 
 // ip address handler
-inline void ip_handler(Document &doc, string k, string v) {
+inline bool ip_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val(v.c_str(), doc.GetAllocator());
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
@@ -141,15 +154,24 @@ inline void ip_handler(Document &doc, string k, string v) {
     string_handler(doc, k + "@province", fields[1]);
     string_handler(doc, k + "@city", fields[2]);
     string_handler(doc, k + "@isp", fields[4]);
+
+    return true;
   }
+
+  return false;
 };
 
-inline void time_local_handler(Document &doc, string k, string s) {
+inline bool time_local_handler(Document &doc, string k, string s) {
   struct tm tm;
   strptime(s.c_str(), "%d/%b/%Y:%H:%M:%S %z", &tm);
   Value key(k.c_str(), doc.GetAllocator()), val;
-  val.SetInt64(cached_mktime(&tm));
-  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+  time_t ts = cached_mktime(&tm);
+  if (ts > 0) {
+    val.SetInt64(ts);
+    doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+    return true;
+  }
+  return false;
 }
 
 const Handlers handlers = {
