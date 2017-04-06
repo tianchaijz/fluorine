@@ -130,10 +130,9 @@ inline bool ip_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val(v.c_str(), doc.GetAllocator());
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
+  std::vector<string> fields(IPResolver::FieldNumber, "unknown");
   char result[util::IPResolver::ResultLengthMax + 1];
   if (util::ResolveIP(v, result)) {
-    std::vector<string> fields(IPResolver::FieldNumber, "unknown");
-
     int i   = 0;
     char *s = result, *e = result;
     while (*e) {
@@ -149,16 +148,14 @@ inline bool ip_handler(Document &doc, string k, string v) {
     if (i < IPResolver::FieldNumber) {
       fields[i] = string(s, e);
     }
-
-    string_handler(doc, k + "@country", fields[0]);
-    string_handler(doc, k + "@province", fields[1]);
-    string_handler(doc, k + "@city", fields[2]);
-    string_handler(doc, k + "@isp", fields[4]);
-
-    return true;
   }
 
-  return false;
+  string_handler(doc, k + "@country", fields[0]);
+  string_handler(doc, k + "@province", fields[1]);
+  string_handler(doc, k + "@city", fields[2]);
+  string_handler(doc, k + "@isp", fields[4]);
+
+  return true;
 };
 
 inline bool time_local_handler(Document &doc, string k, string s) {
