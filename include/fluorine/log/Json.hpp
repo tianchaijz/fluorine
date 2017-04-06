@@ -17,6 +17,7 @@
 #include "fluorine/Macros.hpp"
 #include "fluorine/log/Parser.hpp"
 #include "fluorine/config/Parser.hpp"
+#include "fluorine/util/Fast.hpp"
 #include "fluorine/util/IPResolver.hpp"
 
 namespace fluorine {
@@ -147,7 +148,7 @@ inline void time_local_handler(Document &doc, string k, string s) {
   struct tm tm;
   strptime(s.c_str(), "%d/%b/%Y:%H:%M:%S %z", &tm);
   Value key(k.c_str(), doc.GetAllocator()), val;
-  val.SetInt64(mktime(&tm));
+  val.SetInt64(cached_mktime(&tm));
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 }
 
