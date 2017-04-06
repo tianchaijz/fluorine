@@ -95,6 +95,7 @@ inline void hash_combine(std::size_t &seed, const T &v) {
 
 void agg(std::string backend_ip, unsigned short backend_port,
          const Config &config) {
+  unsigned int bad = 0;
   auto aggregation = config.aggregation_;
   auto agg_key     = aggregation->key_.c_str();
   auto event_loop  = snet::CreateEventLoop();
@@ -201,7 +202,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
     }
   };
 
-  auto hash = [&aggregation](size_t seed, std::unique_ptr<Document> &doc) {
+  auto hash = [&aggregation](size_t &seed, std::unique_ptr<Document> &doc) {
     if (aggregation->fields_) {
       for (auto f : *aggregation->fields_) {
         Value &v = (*doc)[f.c_str()];
@@ -215,16 +216,16 @@ void agg(std::string backend_ip, unsigned short backend_port,
           hash_combine(seed, v.GetDouble());
         else {
           logger->error("unexpected type: {}", v.GetType());
-          assert(false);
+          return false;
         }
       }
     }
 
-    return seed;
+    return true;
   };
 
   LRUType lru(3600, oi, oa, oe, oc);
-  auto handler = [&frontend, &config, &hash, &lru, &clean_doc]() {
+  auto handler = [&bad, &frontend, &config, &hash, &lru, &clean_doc]() {
     std::string line;
     int interval = config.aggregation_->interval_;
     while (frontend.CanSend() && queue.pop(line)) {
@@ -244,18 +245,23 @@ void agg(std::string backend_ip, unsigned short backend_port,
           } else {
             timestamp = 0;
           }
-          size_t key = hash(timestamp, doc);
-          lru.insert(key, std::move(doc));
+          bool ok = hash(timestamp, doc);
+          if (ok) {
+            lru.insert(timestamp, std::move(doc));
+          } else {
+            ++bad;
+          }
         }
       }
     }
   };
 
   snet::Timer send_timer(&timer_list);
-  auto callback = [&event_loop, &send_timer, &handler, &lru]() {
-    if (done && queue.empty()) {
+  auto callback = [&bad, &event_loop, &send_timer, &handler, &lru]() {
+    if (bad > 128 || (done && queue.empty())) {
       lru.clear();
       event_loop->Stop();
+      logger->info("input complete");
       return;
     }
     handler();
@@ -328,7 +334,8 @@ void cycle(std::string path, Option &opt, Config &cfg) {
   }
 
   done = true;
-  loop_thread.join();
+  loop_thread.timed_join(boost::posix_time::seconds(15));
+
   logger->info("input: {}, handle: {}, aggregation: {}, {}%", lines, total,
                aggre, total == 0 ? 0 : aggre * 100.0 / total);
 }
@@ -369,7 +376,7 @@ int main(int argc, char *argv[]) {
   InitIPResolver(opt.ip_db_path_);
 
   if (opt.IsTcpInput()) {
-    auto event_loop = snet::CreateEventLoop(2000);
+    auto event_loop = snet::CreateEventLoop(1000000);
     snet::TimerList timer_list;
     snet::TimerDriver timer_driver(timer_list);
     FrontendTcp ft(opt.frontend_ip_, opt.frontend_port_, opt.backend_ip_,
@@ -388,6 +395,8 @@ int main(int argc, char *argv[]) {
 
         Value &path = doc[0];
         Value &slot = doc[1];
+
+        logger->info("input file: {}", path.GetString());
 
         reply = redis->RedisCommand(
             fmt::format("HGET Log:Config {}", slot.GetString()));
