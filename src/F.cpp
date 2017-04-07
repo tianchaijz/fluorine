@@ -95,7 +95,6 @@ inline void hash_combine(std::size_t &seed, const T &v) {
 
 void agg(std::string backend_ip, unsigned short backend_port,
          const Config &config) {
-  unsigned int bad = 0;
   auto aggregation = config.aggregation_;
   auto agg_key     = aggregation->key_.c_str();
   auto event_loop  = snet::CreateEventLoop();
@@ -225,42 +224,41 @@ void agg(std::string backend_ip, unsigned short backend_port,
   };
 
   LRUType lru(3600, oi, oa, oe, oc);
-  auto handler = [&bad, &frontend, &config, &hash, &lru, &clean_doc]() {
+  auto handler = [&frontend, &config, &hash, &lru, &clean_doc]() {
     std::string line;
     int interval = config.aggregation_->interval_;
     while (frontend.CanSend() && queue.pop(line)) {
-      std::string json;
       Log log;
-      if (ParseLog(line, log, config.field_number_, config.time_index_)) {
-        std::unique_ptr<rapidjson::Document> doc(new rapidjson::Document());
-        if (PopulateJsonDoc(doc.get(), log, config)) {
-          clean_doc(doc);
-          size_t timestamp;
-          if (interval) {
-            rapidjson::Value &tm = (*doc)[config.aggregation_->time_.c_str()];
+      if (!ParseLog(line, log, config.field_number_, config.time_index_)) {
+        logger->warn("bad log: {}", line);
+      }
 
-            timestamp = tm.GetInt64();
-            timestamp = timestamp - (timestamp % interval);
-            tm.SetInt64(timestamp);
-          } else {
-            timestamp = 0;
-          }
-          bool ok = hash(timestamp, doc);
-          if (ok) {
-            lru.insert(timestamp, std::move(doc));
-          } else {
-            ++bad;
-          }
-        } else {
-          ++bad;
-        }
+      std::unique_ptr<rapidjson::Document> doc(new rapidjson::Document());
+      if (!PopulateJsonDoc(doc.get(), log, config)) {
+        logger->warn("json error: {}", line);
+      }
+
+      clean_doc(doc);
+      size_t timestamp;
+      if (interval) {
+        rapidjson::Value &tm = (*doc)[config.aggregation_->time_.c_str()];
+
+        timestamp = tm.GetInt64();
+        timestamp = timestamp - (timestamp % interval);
+        tm.SetInt64(timestamp);
+      } else {
+        timestamp = 0;
+      }
+
+      if (hash(timestamp, doc)) {
+        lru.insert(timestamp, std::move(doc));
       }
     }
   };
 
   snet::Timer send_timer(&timer_list);
-  auto callback = [&bad, &event_loop, &send_timer, &handler, &lru]() {
-    if (bad > 128 || (done && queue.empty())) {
+  auto callback = [&event_loop, &send_timer, &handler, &lru]() {
+    if (done && queue.empty()) {
       lru.clear();
       event_loop->Stop();
       logger->info("input complete");
