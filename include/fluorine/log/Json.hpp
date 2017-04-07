@@ -102,30 +102,6 @@ inline bool double_handler(Document &doc, string k, string v) {
   return true;
 };
 
-// request handler, like: "GET http:://foo.com/bar"
-inline bool request_handler(Document &doc, string, string s) {
-  RequestGrammar<> g;
-  Request request;
-  auto begin = s.begin();
-  auto end   = s.end();
-
-  bool ok = parse(begin, end, g, request);
-  if (!ok) {
-    std::cerr << "parse request failed: " << s << std::endl;
-    return false;
-  }
-
-  Value method(std::get<0>(request).c_str(), doc.GetAllocator());
-  Value scheme(std::get<1>(request).c_str(), doc.GetAllocator());
-  Value domain(std::get<2>(request).c_str(), doc.GetAllocator());
-
-  doc.AddMember("method", method.Move(), doc.GetAllocator());
-  doc.AddMember("scheme", scheme.Move(), doc.GetAllocator());
-  doc.AddMember("domain", domain.Move(), doc.GetAllocator());
-
-  return true;
-}
-
 // ip address handler
 inline bool ip_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val(v.c_str(), doc.GetAllocator());
@@ -172,11 +148,48 @@ inline bool time_local_handler(Document &doc, string, string s) {
   return false;
 }
 
+// request handler, like: "GET http:://foo.com/bar"
+inline bool request_handler(Document &doc, string, string s) {
+  RequestGrammar<> g;
+  Request request;
+  auto begin = s.begin();
+  auto end   = s.end();
+
+  bool ok = parse(begin, end, g, request);
+  if (!ok) {
+    std::cerr << "parse request failed: " << s << std::endl;
+    return false;
+  }
+
+  Value method(std::get<0>(request).c_str(), doc.GetAllocator());
+  Value scheme(std::get<1>(request).c_str(), doc.GetAllocator());
+  Value domain(std::get<2>(request).c_str(), doc.GetAllocator());
+
+  doc.AddMember("method", method.Move(), doc.GetAllocator());
+  doc.AddMember("scheme", scheme.Move(), doc.GetAllocator());
+  doc.AddMember("domain", domain.Move(), doc.GetAllocator());
+
+  return true;
+}
+
+inline bool status_handler(Document &doc, string k, string v) {
+  Value key(k.c_str(), doc.GetAllocator()), val;
+  int num;
+  try {
+    num = std::stoi(v);
+  } catch (const std::exception &e) {
+    num = 0;
+  }
+  val.SetInt(num);
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+  return true;
+};
+
 const Handlers handlers = {
     {"string", string_handler},   {"int", int32_handler},
     {"long long", int64_handler}, {"double", double_handler},
     {"ip", ip_handler},           {"time_local", time_local_handler},
-    {"request", request_handler},
+    {"request", request_handler}, {"status", status_handler},
 };
 
 bool DocToString(Document *doc, std::string &json);
