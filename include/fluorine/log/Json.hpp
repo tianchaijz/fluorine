@@ -43,7 +43,7 @@ struct RequestGrammar : qi::grammar<Iterator, Request()> {
     using namespace qi;
     scheme  = hold[+char_("a-z") >> lit("://")] | attr("http");
     request = +char_("A-Z") >> omit[+space] >> scheme >>
-              (+~char_(" /") | attr("unknown")) >> omit[*char_];
+              (+~char_(" /") | attr("unknown"));
   }
 
 private:
@@ -110,7 +110,7 @@ inline bool request_handler(Document &doc, string, string s) {
   auto end   = s.end();
 
   bool ok = parse(begin, end, g, request);
-  if (!ok || begin != end) {
+  if (!ok) {
     std::cerr << "parse request failed: " << s << std::endl;
     return false;
   }
@@ -118,6 +118,7 @@ inline bool request_handler(Document &doc, string, string s) {
   Value method(std::get<0>(request).c_str(), doc.GetAllocator());
   Value scheme(std::get<1>(request).c_str(), doc.GetAllocator());
   Value domain(std::get<2>(request).c_str(), doc.GetAllocator());
+
   doc.AddMember("method", method.Move(), doc.GetAllocator());
   doc.AddMember("scheme", scheme.Move(), doc.GetAllocator());
   doc.AddMember("domain", domain.Move(), doc.GetAllocator());

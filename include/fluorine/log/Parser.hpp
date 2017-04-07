@@ -19,8 +19,11 @@ struct Grammar : qi::grammar<Iterator, Log(), qi::space_type> {
       : Grammar::base_type(log), field_number(fn), time_index(ti) {
     using namespace qi;
 
-    quoted    = '"' >> *("\\" >> char_('"') | ~char_('"')) >> '"';
-    field     = quoted | +~char_(" \n");
+    quoted =
+        '"' >>
+        raw[*(("\\" >> char_('"')) | ~char_('"') | '"' >> ~char_(" \t\n"))] >>
+        '"';
+    field     = quoted | +~char_(" \t\n");
     timestamp = +~char_("[]");
     time      = ('[' >> timestamp >> ']') | timestamp;
 

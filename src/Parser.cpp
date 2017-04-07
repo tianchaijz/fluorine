@@ -15,7 +15,7 @@ bool ParseLog(std::string &line, Log &log, unsigned int field_number,
   iterator_type begin = line.begin();
   iterator_type end   = line.end();
   bool ok             = qi::phrase_parse(begin, end, g, qi::space, log);
-  if (!ok || begin != end) {
+  if (!ok) {
     logger->warn("log parse failed, remaining unparsed: {}",
                  std::string(begin, end));
     return false;
