@@ -48,26 +48,37 @@ static unsigned long long aggre = 0;
 static bool done                = false;
 
 void loop(std::string backend_ip, unsigned short backend_port,
-          const Config &config) {
+          const Config &config, std::string path) {
   auto event_loop = snet::CreateEventLoop();
   snet::TimerList timer_list;
   Frontend frontend(backend_ip, backend_port, event_loop.get(), &timer_list);
 
-  auto handler = [&frontend, &config]() {
+  auto handler = [&frontend, &config, path]() {
     std::string line;
     while (frontend.CanSend() && queue.pop(line)) {
-      std::string json;
       Log log;
-      if (ParseLog(line, log, config.field_number_, config.time_index_)) {
-        if (ToJsonString(log, json, config)) {
-          char *ch        = new char[json.size() + 1];
-          ch[json.size()] = '\n';
-          std::copy(json.begin(), json.end(), ch);
-          std::unique_ptr<snet::Buffer> data(
-              new snet::Buffer(ch, json.size() + 1, snet::OpDeleter));
-          frontend.Send(std::move(data));
-        }
+      if (!ParseLog(line, log, config.field_number_, config.time_index_)) {
+        continue;
       }
+
+      std::unique_ptr<rapidjson::Document> doc(new rapidjson::Document());
+      if (!PopulateJsonDoc(doc.get(), log, config)) {
+        continue;
+      }
+
+      if (!doc->HasMember("path")) {
+        doc->AddMember("path", Value(path.c_str(), doc->GetAllocator()),
+                       doc->GetAllocator());
+      }
+
+      std::string json;
+      DocToString(doc.get(), json);
+      char *ch        = new char[json.size() + 1];
+      ch[json.size()] = '\n';
+      std::copy(json.begin(), json.end(), ch);
+      std::unique_ptr<snet::Buffer> data(
+          new snet::Buffer(ch, json.size() + 1, snet::OpDeleter));
+      frontend.Send(std::move(data));
     }
   };
 
@@ -94,7 +105,7 @@ inline void hash_combine(std::size_t &seed, const T &v) {
 }
 
 void agg(std::string backend_ip, unsigned short backend_port,
-         const Config &config) {
+         const Config &config, std::string path) {
   auto aggregation = config.aggregation_;
   auto agg_key     = aggregation->key_.c_str();
   auto event_loop  = snet::CreateEventLoop();
@@ -163,9 +174,13 @@ void agg(std::string backend_ip, unsigned short backend_port,
     frontend.Send(std::move(data));
   };
 
-  LRUType::OnInsert oi = [](std::unique_ptr<Document> &doc) {
+  LRUType::OnInsert oi = [path](std::unique_ptr<Document> &doc) {
     if (!doc->HasMember("count")) {
       doc->AddMember("count", int64_t(1), doc->GetAllocator());
+    }
+    if (!doc->HasMember("path")) {
+      doc->AddMember("path", Value(path.c_str(), doc->GetAllocator()),
+                     doc->GetAllocator());
     }
   };
 
@@ -320,11 +335,11 @@ void cycle(std::string path, Option &opt, Config &cfg) {
   TimerGuard tg;
   boost::thread loop_thread;
   if (cfg.aggregation_) {
-    loop_thread = boost::thread(
-        std::bind(agg, opt.backend_ip_, opt.backend_port_, std::cref(cfg)));
+    loop_thread = boost::thread(std::bind(
+        agg, opt.backend_ip_, opt.backend_port_, std::cref(cfg), path));
   } else {
-    loop_thread = boost::thread(
-        std::bind(loop, opt.backend_ip_, opt.backend_port_, std::cref(cfg)));
+    loop_thread = boost::thread(std::bind(
+        loop, opt.backend_ip_, opt.backend_port_, std::cref(cfg), path));
   }
 
   if (boost::algorithm::ends_with(path, ".gz")) {
