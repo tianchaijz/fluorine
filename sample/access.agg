@@ -8,7 +8,7 @@ access(9 /* field numer */, 4 /* time index */, 0 /* time span */) {
     remote_addr:          [ip, 1 /* retain */];
     _:                    [string, 0 /* ignore */];
     remote_user:          [string, 0];
-    time_local:           [time_local, 1];
+    timestamp:            [time_local, 1];
     request:              [request, 1];
     status:               [int, 1];
     body_bytes_sent:      ["long long", 1];
@@ -22,7 +22,7 @@ access(9 /* field numer */, 4 /* time index */, 0 /* time span */) {
 
 (
     "body_bytes_sent", /* key name */
-    "time_local", /* time field name */
+    "timestamp", /* time field name */
     5 /* interval in seconds */
 )
 

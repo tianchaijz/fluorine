@@ -142,7 +142,7 @@ inline bool time_local_handler(Document &doc, string, string s) {
   if (ts > 0) {
     Value val;
     val.SetInt64(ts);
-    doc.AddMember("timestamp_secs", val.Move(), doc.GetAllocator());
+    doc.AddMember("timestamp", val.Move(), doc.GetAllocator());
     return true;
   }
   return false;
