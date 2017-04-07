@@ -23,7 +23,7 @@ access(9 /* field numer */, 4 /* time index */, 0 /* time span */) {
 (
     "body_bytes_sent", /* key name */
     "time_local", /* time field name */
-    1000 /* interval in millseconds */
+    5 /* interval in seconds */
 )
 
 /* aggregation fields */
@@ -32,7 +32,7 @@ access(9 /* field numer */, 4 /* time index */, 0 /* time span */) {
     "scheme",
     "domain",
     "status",
-    "remote_addr.country",
-    "remote_addr.province",
-    "remote_addr.isp"
+    "remote_addr@country",
+    "remote_addr@province",
+    "remote_addr@isp"
 ]
