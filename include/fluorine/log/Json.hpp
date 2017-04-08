@@ -1,8 +1,8 @@
 #pragma once
 
 #include <set>
+#include <map>
 #include <string>
-#include <unordered_map>
 #include <functional>
 #include <ctime>
 #include <time.h>
@@ -34,7 +34,7 @@ extern std::set<std::string> IPFields;
 extern std::set<std::string> RequestFields;
 
 typedef std::function<bool(Document &, string, string)> Handler;
-typedef std::unordered_map<string, Handler> Handlers;
+typedef std::map<string, Handler> Handlers;
 typedef std::tuple<string, string, string> Request;
 
 template <typename Iterator = string::iterator>
@@ -135,46 +135,72 @@ inline bool ip_handler(Document &doc, string k, string v) {
   return true;
 };
 
-template <typename Iterator = std::string::iterator>
-struct TZGrammar : qi::grammar<Iterator, std::vector<unsigned int>()> {
-  TZGrammar() : TZGrammar::base_type(tz) {
-    using namespace boost::spirit::qi;
-    uint_parser<unsigned, 10, 2, 2> uint2_2_p;
+struct TimeLocal {
+  int day_;
+  std::string mon_;
+  int year_;
+  int hour_;
+  int min_;
+  int sec_;
+  char sign_;
+  int tz_hour_;
+  int tz_min_;
+};
 
-    tz = uint2_2_p >> uint2_2_p;
+template <typename Iterator = std::string::iterator>
+struct TimeLocalGrammar : qi::grammar<Iterator, TimeLocal()> {
+  TimeLocalGrammar() : TimeLocalGrammar::base_type(tl) {
+    using namespace boost::spirit::qi;
+    int_parser<unsigned, 10, 2, 2> int2_2_p;
+
+    tl = int_ >> '/' >> +char_("a-zA-Z") >> '/' >> int_ >> ':' >> int_ >> ':' >>
+         int_ >> ':' >> int_ >> omit[+space] >> char_("+-") >> int2_2_p >>
+         int2_2_p;
   }
 
 private:
-  qi::rule<Iterator, std::vector<unsigned int>()> tz;
+  qi::rule<Iterator, TimeLocal()> tl;
 };
 
 inline bool time_local_handler(Document &doc, string k, string s) {
-  struct tm tm;
-  strptime(s.c_str(), "%d/%b/%Y:%H:%M:%S %z", &tm);
-  time_t ts = cached_mktime(&tm);
-  if (ts > 0) {
-    bool neg    = false;
-    int offset  = 0;
-    string zone = s.substr(s.size() - 5, 5);
-    if (zone.size() == 5) {
-      if (zone[0] == '-') {
-        neg = true;
-      }
+  static std::map<std::string, unsigned short> month = {
+      {"Jan", 0}, {"Feb", 1}, {"Mar", 2}, {"Apr", 3}, {"May", 4},  {"Jun", 5},
+      {"Jul", 6}, {"Aug", 7}, {"Sep", 8}, {"Oct", 9}, {"Nov", 10}, {"Dec", 11}};
 
-      TZGrammar<> g;
-      std::vector<unsigned int> t;
-      bool ok = qi::parse(zone.begin() + 1, zone.end(), g, t);
-      if (ok) {
-        offset = t[0] * 3600 + t[1] * 60;
-      }
-    }
+  TimeLocalGrammar<> g;
+  TimeLocal tl;
 
-    Value key(k.c_str(), doc.GetAllocator()), val;
-    val.SetInt64(neg ? ts - offset : ts + offset);
-    doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
-    return true;
+  bool ok = qi::parse(s.begin(), s.end(), g, tl);
+  if (!ok) {
+    return false;
   }
-  return false;
+
+  auto it = month.find(tl.mon_);
+  if (it == month.end()) {
+    return false;
+  }
+
+  struct tm tm = {};
+
+  tm.tm_mday = tl.day_;
+  tm.tm_mon  = it->second;
+  tm.tm_year = tl.year_ - 1900;
+  tm.tm_hour = tl.hour_;
+  tm.tm_min  = tl.min_;
+  tm.tm_sec  = tl.sec_;
+
+  time_t ts = cached_mktime(&tm);
+  if (ts < 0) {
+    return false;
+  }
+
+  int offset = tl.tz_hour_ * 3600 + tl.tz_min_ * 60;
+
+  Value key(k.c_str(), doc.GetAllocator()), val;
+  val.SetInt64(tl.sign_ == '+' ? ts + offset : ts - offset);
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+
+  return true;
 }
 
 // request handler, like: "GET http:://foo.com/bar"
@@ -227,3 +253,14 @@ bool ToJsonString(Log &log, std::string &json, const Config &cfg);
 
 } // namespace json
 } // namespace fluorine
+
+BOOST_FUSION_ADAPT_STRUCT(fluorine::json::TimeLocal,
+    (int, day_)
+    (std::string, mon_)
+    (int, year_)
+    (int, hour_)
+    (int, min_)
+    (int, sec_)
+    (char, sign_)
+    (int, tz_hour_)
+    (int, tz_min_))
