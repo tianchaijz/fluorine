@@ -135,14 +135,14 @@ inline bool ip_handler(Document &doc, string k, string v) {
   return true;
 };
 
-inline bool time_local_handler(Document &doc, string, string s) {
+inline bool time_local_handler(Document &doc, string k, string s) {
   struct tm tm;
   strptime(s.c_str(), "%d/%b/%Y:%H:%M:%S %z", &tm);
   time_t ts = cached_mktime(&tm);
   if (ts > 0) {
-    Value val;
+    Value key(k.c_str(), doc.GetAllocator()), val;
     val.SetInt64(ts);
-    doc.AddMember("timestamp", val.Move(), doc.GetAllocator());
+    doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
     return true;
   }
   return false;

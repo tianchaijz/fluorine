@@ -1,5 +1,5 @@
 /*
-* time_local -> millseconds
+* timestamp -> seconds
 * request -> "method, scheme, domain, uri"
 * ip -> "country, province, city, isp"
 */
