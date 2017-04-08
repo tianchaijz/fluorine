@@ -108,8 +108,8 @@ inline bool ip_handler(Document &doc, string k, string v) {
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
   std::vector<string> fields(IPResolver::FieldNumber, "unknown");
-  char result[util::IPResolver::ResultLengthMax + 1];
-  if (util::ResolveIP(v, result)) {
+  char *result;
+  if (util::ResolveIP(v, &result)) {
     int i   = 0;
     char *s = result, *e = result;
     while (*e) {

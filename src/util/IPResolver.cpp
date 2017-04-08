@@ -18,7 +18,7 @@ void InitIPResolver(const std::string &db_path) {
   }
 }
 
-bool ResolveIP(const std::string &ip, char *result) {
+bool ResolveIP(const std::string &ip, char **result) {
   return resolver->Resolve(ip, result);
 }
 
@@ -73,7 +73,13 @@ private:
   boost::spirit::qi::rule<Iterator, std::vector<uint>()> ip;
 };
 
-bool IPResolver::Resolve(const std::string &ip, char *result) {
+bool IPResolver::Resolve(const std::string &ip, char **result) {
+  auto res = lru_.get(ip);
+  if (res) {
+    *result = res->get();
+    return true;
+  }
+
   IPGrammar<> g;
   std::vector<uint> ips;
   ips.reserve(4);
@@ -102,8 +108,13 @@ bool IPResolver::Resolve(const std::string &ip, char *result) {
     return false;
   }
 
-  memcpy(result, data_ + offset_ + index_offset - 1024, index_length);
-  result[index_length] = '\0';
+  std::shared_ptr<char> data(new char[index_length + 1],
+                             std::default_delete<char[]>());
+  *result = data.get();
+  memcpy(*result, data_ + offset_ + index_offset - 1024, index_length);
+  (*result)[index_length] = '\0';
+
+  lru_.insert(ip, std::move(data));
 
   return true;
 }
