@@ -41,7 +41,7 @@ namespace lockfree = boost::lockfree;
 using LRUType = LRUCache<size_t, std::unique_ptr<Document>>;
 
 static auto logger = spdlog::stdout_color_st("F");
-static lockfree::spsc_queue<std::string, lockfree::capacity<8192>> queue;
+static lockfree::spsc_queue<std::string, lockfree::capacity<32768>> queue;
 static unsigned long long lines = 0;
 static unsigned long long total = 0;
 static unsigned long long aggre = 0;
@@ -89,7 +89,7 @@ void loop(std::string backend_ip, unsigned short backend_port,
       return;
     }
     handler();
-    send_timer.ExpireFromNow(snet::Milliseconds(0));
+    send_timer.ExpireFromNow(snet::Milliseconds(1));
   };
   send_timer.ExpireFromNow(snet::Milliseconds(0));
   send_timer.SetOnTimeout(callback);
@@ -280,7 +280,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
       return;
     }
     handler();
-    send_timer.ExpireFromNow(snet::Milliseconds(0));
+    send_timer.ExpireFromNow(snet::Milliseconds(1));
   };
   send_timer.ExpireFromNow(snet::Milliseconds(0));
   send_timer.SetOnTimeout(callback);
@@ -298,7 +298,7 @@ inline void produce(T &is) {
       logger->info("input lines: {}", lines);
     }
     while (!queue.push(std::move(line)))
-      ;
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 
