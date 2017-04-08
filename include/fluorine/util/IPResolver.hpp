@@ -17,12 +17,12 @@ public:
   typedef unsigned char uchar;
 
   static const int ResultLengthMax = 256;
-  static const int FieldNumber = 5;
+  static const int FieldNumber     = 5;
 
   IPResolver(const char *db_path);
   IPResolver(const char *db_data, const size_t db_size);
   ~IPResolver();
-  bool Resolve(const char *ip, char *result);
+  bool Resolve(const std::string &ip, char *result);
 
 private:
   DISALLOW_COPY_AND_ASSIGN(IPResolver);

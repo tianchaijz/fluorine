@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <iostream>
 
+#include <boost/spirit/include/qi.hpp>
+
 #include "spdlog/spdlog.h"
 #include "fluorine/util/IPResolver.hpp"
 
@@ -17,7 +19,7 @@ void InitIPResolver(const std::string &db_path) {
 }
 
 bool ResolveIP(const std::string &ip, char *result) {
-  return resolver->Resolve(ip.c_str(), result);
+  return resolver->Resolve(ip, result);
 }
 
 #define B2IL(b)                                                               \
@@ -60,10 +62,23 @@ IPResolver::~IPResolver() {
   }
 }
 
-bool IPResolver::Resolve(const char *ip, char *result) {
-  uint ips[4];
-  int num = sscanf(ip, "%d.%d.%d.%d", &ips[0], &ips[1], &ips[2], &ips[3]);
-  if (num != 4) {
+template <typename Iterator = std::string::const_iterator>
+struct IPGrammar : boost::spirit::qi::grammar<Iterator, std::vector<uint>()> {
+  IPGrammar() : IPGrammar::base_type(ip) {
+    using namespace boost::spirit::qi;
+    ip = uint_ >> '.' >> uint_ >> '.' >> uint_ >> '.' >> uint_;
+  }
+
+private:
+  boost::spirit::qi::rule<Iterator, std::vector<uint>()> ip;
+};
+
+bool IPResolver::Resolve(const std::string &ip, char *result) {
+  IPGrammar<> g;
+  std::vector<uint> ips;
+  ips.reserve(4);
+  bool ok = boost::spirit::qi::parse(ip.begin(), ip.end(), g, ips);
+  if (!ok) {
     logger->error("invalid ip: {}", ip);
     return false;
   }
