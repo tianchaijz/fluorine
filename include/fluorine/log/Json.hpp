@@ -135,13 +135,42 @@ inline bool ip_handler(Document &doc, string k, string v) {
   return true;
 };
 
+template <typename Iterator = std::string::iterator>
+struct TZGrammar : qi::grammar<Iterator, std::vector<unsigned int>()> {
+  TZGrammar() : TZGrammar::base_type(tz) {
+    using namespace boost::spirit::qi;
+    uint_parser<unsigned, 10, 2, 2> uint2_2_p;
+
+    tz = uint2_2_p >> uint2_2_p;
+  }
+
+private:
+  qi::rule<Iterator, std::vector<unsigned int>()> tz;
+};
+
 inline bool time_local_handler(Document &doc, string k, string s) {
   struct tm tm;
   strptime(s.c_str(), "%d/%b/%Y:%H:%M:%S %z", &tm);
   time_t ts = cached_mktime(&tm);
   if (ts > 0) {
+    bool neg    = false;
+    int offset  = 0;
+    string zone = s.substr(s.size() - 5, 5);
+    if (zone.size() == 5) {
+      if (zone[0] == '-') {
+        neg = true;
+      }
+
+      TZGrammar<> g;
+      std::vector<unsigned int> t;
+      bool ok = qi::parse(zone.begin() + 1, zone.end(), g, t);
+      if (ok) {
+        offset = t[0] * 3600 + t[1] * 60;
+      }
+    }
+
     Value key(k.c_str(), doc.GetAllocator()), val;
-    val.SetInt64(ts);
+    val.SetInt64(neg ? ts - offset : ts + offset);
     doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
     return true;
   }
