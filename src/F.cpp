@@ -298,7 +298,7 @@ inline void produce(T &is) {
       logger->info("input lines: {}", lines);
     }
     while (!queue.push(std::move(line)))
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      boost::this_thread::sleep(boost::posix_time::milliseconds(1));
   }
 }
 
@@ -430,7 +430,7 @@ int main(int argc, char *argv[]) {
         done = false;
         cycle(path.GetString(), opt, cfg);
       } else {
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        boost::this_thread::sleep(boost::posix_time::seconds(2));
       }
     }
   } else {
