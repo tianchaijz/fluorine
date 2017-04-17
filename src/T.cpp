@@ -25,13 +25,22 @@ void testJson() {
 
   StringBuffer buffer;
   Writer<rapidjson::StringBuffer> writer(buffer);
-  d.Accept(writer);
 
   string a("a"), b("b");
   Value va, vb;
   va.SetString(a.c_str(), allocator);
   vb.SetString(b.c_str(), allocator);
   d.AddMember(va, vb, allocator);
+
+  {
+    string a("a"), b("b");
+    Value va, vb;
+    va.SetString(a.c_str(), allocator);
+    vb.SetString(b.c_str(), allocator);
+    d.AddMember(va, vb, allocator);
+  }
+
+  d.Accept(writer);
 
   std::cout << buffer.GetString() << std::endl;
 }
