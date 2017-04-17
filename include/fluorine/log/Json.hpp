@@ -3,6 +3,7 @@
 #include <set>
 #include <map>
 #include <string>
+#include <algorithm>
 #include <functional>
 #include <ctime>
 #include <time.h>
@@ -240,11 +241,53 @@ inline bool status_handler(Document &doc, string k, string v) {
   return true;
 };
 
+inline char tolower(char in) {
+  if (in <= 'Z' && in >= 'A')
+    return in - ('Z' - 'z');
+  return in;
+}
+
+inline bool live_action_handler(Document &doc, string k, string v) {
+  std::transform(v.begin(), v.end(), v.begin(), tolower);
+  if (v == "stop") {
+    return false;
+  }
+  string_handler(doc, k, v);
+  return true;
+};
+
+inline bool int64_sum_handler(Document &doc, string k, string v) {
+  Value key(k.c_str(), doc.GetAllocator());
+  int64_t num;
+  try {
+    num = std::stoll(v);
+  } catch (const std::exception &e) {
+    num = 0;
+  }
+
+  if (doc.HasMember(k.c_str())) {
+    Value &val = doc[k.c_str()];
+    val.SetInt64(val.GetInt64() + num);
+  } else {
+    doc.AddMember(key.Move(), num, doc.GetAllocator());
+  }
+
+  return true;
+};
+
 const Handlers handlers = {
-    {"string", string_handler},   {"int", int32_handler},
-    {"long long", int64_handler}, {"double", double_handler},
-    {"ip", ip_handler},           {"time_local", time_local_handler},
-    {"request", request_handler}, {"status", status_handler},
+    {"string", string_handler},
+    {"int", int32_handler},
+    {"int64", int64_handler},
+    {"int64_sum", int64_sum_handler},
+    {"long long", int64_handler},
+    {"double", double_handler},
+    {"ip", ip_handler},
+    {"time_local", time_local_handler},
+    {"request", request_handler},
+    {"status", status_handler},
+    {"live_action", live_action_handler},
+    {"status", status_handler},
 };
 
 bool DocToString(Document *doc, std::string &json);
