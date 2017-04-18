@@ -109,23 +109,29 @@ inline bool ip_handler(Document &doc, string k, string v) {
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
   std::vector<string> fields(IPResolver::FieldNumber, "unknown");
-  char *result;
-  if (util::ResolveIP(v, &result)) {
-    int i   = 0;
-    char *s = result, *e = result;
-    while (*e) {
-      if (*e == '\t') {
-        if (i < IPResolver::FieldNumber) {
-          fields[i++] = string(s, e);
+  if (v.find(':' == std::string::npos /* ipv4 */)) {
+    char *result;
+    if (util::ResolveIP(v, &result)) {
+      int i   = 0;
+      char *s = result, *e = result;
+      while (*e) {
+        if (*e == '\t') {
+          if (i < IPResolver::FieldNumber) {
+            fields[i++] = string(s, e);
+          }
+          s = e + 1;
         }
-        s = e + 1;
+        ++e;
       }
-      ++e;
-    }
 
-    if (i < IPResolver::FieldNumber) {
-      fields[i] = string(s, e);
+      if (i < IPResolver::FieldNumber) {
+        fields[i] = string(s, e);
+      }
     }
+  } else {
+    fields[0] = "ipv6";
+    fields[1] = "ipv6";
+    fields[2] = "ipv6";
   }
 
   string_handler(doc, k + "@country", fields[0]);
@@ -148,6 +154,15 @@ struct TimeLocal {
   int tz_min_;
 };
 
+struct TimeDate {
+  int year_;
+  int mon_;
+  int day_;
+  int hour_;
+  int min_;
+  int sec_;
+};
+
 template <typename Iterator = std::string::iterator>
 struct TimeLocalGrammar : qi::grammar<Iterator, TimeLocal()> {
   TimeLocalGrammar() : TimeLocalGrammar::base_type(tl) {
@@ -161,6 +176,18 @@ struct TimeLocalGrammar : qi::grammar<Iterator, TimeLocal()> {
 
 private:
   qi::rule<Iterator, TimeLocal()> tl;
+};
+
+template <typename Iterator = std::string::iterator>
+struct TimeDateGrammar : qi::grammar<Iterator, TimeDate()> {
+  TimeDateGrammar() : TimeDateGrammar::base_type(td) {
+    using namespace boost::spirit::qi;
+    td = int_ >> '-' >> int_ >> '-' >> int_ >> omit[+space] >> int_ >> ':' >>
+         int_ >> ':' >> int_;
+  }
+
+private:
+  qi::rule<Iterator, TimeDate()> td;
 };
 
 inline bool time_local_handler(Document &doc, string k, string s) {
@@ -199,6 +226,36 @@ inline bool time_local_handler(Document &doc, string k, string s) {
 
   Value key(k.c_str(), doc.GetAllocator()), val;
   val.SetInt64(tl.sign_ == '+' ? ts + offset : ts - offset);
+  doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
+
+  return true;
+}
+
+inline bool time_date_handler(Document &doc, string k, string s) {
+  TimeDateGrammar<> g;
+  TimeDate td;
+
+  bool ok = qi::parse(s.begin(), s.end(), g, td);
+  if (!ok) {
+    return false;
+  }
+
+  struct tm tm = {};
+
+  tm.tm_year = td.year_ - 1900;
+  tm.tm_mon  = td.mon_ - 1;
+  tm.tm_mday = td.day_;
+  tm.tm_hour = td.hour_;
+  tm.tm_min  = td.min_;
+  tm.tm_sec  = td.sec_;
+
+  time_t ts = cached_mktime(&tm);
+  if (ts < 0) {
+    return false;
+  }
+
+  Value key(k.c_str(), doc.GetAllocator()), val;
+  val.SetInt64(ts);
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
   return true;
@@ -284,6 +341,7 @@ const Handlers handlers = {
     {"double", double_handler},
     {"ip", ip_handler},
     {"time_local", time_local_handler},
+    {"time_date", time_date_handler},
     {"request", request_handler},
     {"status", status_handler},
     {"live_action", live_action_handler},
@@ -307,3 +365,11 @@ BOOST_FUSION_ADAPT_STRUCT(fluorine::json::TimeLocal,
     (char, sign_)
     (int, tz_hour_)
     (int, tz_min_))
+
+BOOST_FUSION_ADAPT_STRUCT(fluorine::json::TimeDate,
+    (int, year_)
+    (int, mon_)
+    (int, day_)
+    (int, hour_)
+    (int, min_)
+    (int, sec_))
