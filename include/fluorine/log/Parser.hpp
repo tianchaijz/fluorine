@@ -25,7 +25,7 @@ struct Grammar : qi::grammar<Iterator, Log(), qi::space_type> {
         '"';
     field     = quoted | +~char_(" \t\n");
     timestamp = +~char_("[]");
-    time      = ('[' >> timestamp >> ']') | timestamp;
+    time      = ('[' >> timestamp >> ']') | field;
 
     if (time_index) {
       if (field_number < time_index) {
