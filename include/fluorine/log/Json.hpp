@@ -222,10 +222,8 @@ inline bool time_local_handler(Document &doc, string k, string s) {
     return false;
   }
 
-  int offset = tl.tz_hour_ * 3600 + tl.tz_min_ * 60;
-
   Value key(k.c_str(), doc.GetAllocator()), val;
-  val.SetInt64(tl.sign_ == '+' ? ts + offset : ts - offset);
+  val.SetInt64(ts);
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
   return true;
