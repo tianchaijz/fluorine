@@ -402,8 +402,13 @@ int main(int argc, char *argv[]) {
     auto address = opt.GetRedisAddress();
     auto redis   = Redis(new RedisConnection(address.first, address.second));
     for (;;) {
-      auto reply =
-          redis->RedisCommand(fmt::format("LPOP {}", opt.redis_queue_));
+      auto reply = redis->RedisCommand("GET Log:Stop");
+      if (reply && reply->type == REDIS_REPLY_STRING) {
+        boost::this_thread::sleep(boost::posix_time::seconds(2));
+        continue;
+      }
+
+      reply = redis->RedisCommand(fmt::format("LPOP {}", opt.redis_queue_));
       if (reply && reply->type == REDIS_REPLY_STRING) {
         rapidjson::Document doc;
         doc.Parse(reply->str);
