@@ -64,6 +64,10 @@ bool PopulateJsonDoc(Document *doc, const Log &log, const Config &cfg) {
         }
       }
     } else if (attribute[1] == Attribute::ADD) {
+      if (doc->HasMember(attributes[i].name_.c_str())) {
+        doc->RemoveMember(attributes[i].name_.c_str());
+      }
+
       if (!it->second(*doc, attributes[i].name_, attribute[2])) {
         return false;
       }
