@@ -302,12 +302,14 @@ inline char tolower(char in) {
   return in;
 }
 
-inline bool live_action_handler(Document &doc, string k, string v) {
-  std::transform(v.begin(), v.end(), v.begin(), tolower);
-  if (v == "stop") {
-    return false;
+inline bool misc_live_filter(Document &doc, string, string) {
+  std::string method = doc["method"].GetString();
+  std::transform(method.begin(), method.end(), method.begin(), tolower);
+  if (method != "stop") {
+    Value &bytes_sent = doc["body_bytes_sent"];
+    bytes_sent.SetInt64(int64_t(0));
   }
-  string_handler(doc, k, v);
+
   return true;
 };
 
@@ -342,7 +344,7 @@ const Handlers handlers = {
     {"time_date", time_date_handler},
     {"request", request_handler},
     {"status", status_handler},
-    {"live_action", live_action_handler},
+    {"misc_live_filter", misc_live_filter},
     {"status", status_handler},
 };
 

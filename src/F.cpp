@@ -251,6 +251,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
       std::unique_ptr<rapidjson::Document> doc(new rapidjson::Document());
       if (!PopulateJsonDoc(doc.get(), log, config)) {
         logger->warn("json error: {}", line);
+        continue;
       }
 
       clean_doc(doc);
