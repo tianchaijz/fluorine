@@ -43,30 +43,17 @@ set_target_properties(hiredis PROPERTIES
     IMPORTED_LOCATION_NOCONFIG "${HIREDIS_LIBRARY}")
 add_dependencies(hiredis build_hiredis)
 
-add_executable(R
-    src/R.cpp
-    )
-target_link_libraries(R fluorine fmt)
-
-add_executable(T
-    src/T.cpp
-    )
-
-add_executable(G
-    src/G.cpp
-    )
-target_link_libraries(G ${BOOSTIOS_LIBRARY} z)
-
-add_executable(F
-    src/F.cpp
+add_executable(Fluorine
+    src/Fluorine.cpp
     )
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     SET(CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -static")
 endif()
 
-target_link_libraries(F fluorine snet)
+target_link_libraries(Fluorine fluorine snet)
 
 add_subdirectory(src)
+add_subdirectory(t)
 add_subdirectory(external/fmt)
 add_subdirectory(external/snet)
