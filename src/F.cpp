@@ -322,12 +322,12 @@ void gzip_producer(std::string path) {
       return;
     }
 
-    boost::iostreams::filtering_stream<bio::input> in;
+    bio::filtering_stream<bio::input> in;
     in.push(bio::gzip_decompressor());
     in.push(is);
 
     produce(in);
-  } catch (const boost::iostreams::gzip_error &e) {
+  } catch (const bio::gzip_error &e) {
     logger->error("{} gzip error: {}", path, e.what());
   }
 }
