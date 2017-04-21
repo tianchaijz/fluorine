@@ -5,6 +5,9 @@
 #include <utility>
 #include <fstream>
 #include <iostream>
+
+#include "gzstream/gzstream.h"
+
 #include <boost/program_options.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -59,8 +62,8 @@ struct GzipLineSplitter {
                    std::string suffix, bool remove)
       : path_(path), size_(size), prefix_(prefix + "_part_"), suffix_(suffix),
         remove_(remove),
-        in_fd_(path_, std::ios_base::in | std::ios_base::binary), out_index_(0),
-        out_changed_(true) {}
+        in_fd_(path_.c_str(), std::ios_base::in | std::ios_base::binary),
+        out_index_(0), out_changed_(true) {}
 
   ~GzipLineSplitter() {}
 
@@ -89,10 +92,10 @@ struct GzipLineSplitter {
     *out_fd_ << compressed.rdbuf();
   }
 
-  inline void DoSplit(bio::filtering_stream<bio::input> &is) {
+  inline void DoSplit() {
     std::string line, buf;
     int64_t nr = 0;
-    while (std::getline(is, line)) {
+    while (std::getline(in_fd_, line)) {
       nr += line.size();
       if (nr > size_) {
         nr = 0;
@@ -111,13 +114,9 @@ struct GzipLineSplitter {
   }
 
   void Split() {
-    ASSERT(in_fd_.is_open());
+    ASSERT(in_fd_.good());
 
-    bio::filtering_stream<bio::input> in;
-    in.push(bio::gzip_decompressor());
-    in.push(in_fd_);
-
-    DoSplit(in);
+    DoSplit();
 
     if (remove_) {
       std::cout << "[REMOVE] " + path_ << std::endl;
@@ -132,7 +131,7 @@ private:
   std::string suffix_;
   bool remove_;
 
-  std::ifstream in_fd_;
+  igzstream in_fd_;
 
   int64_t out_index_;
   std::string out_path_;
