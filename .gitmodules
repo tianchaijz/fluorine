@@ -13,3 +13,7 @@
 [submodule "fmt"]
 	path = external/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "external/gzstream"]
+	path = external/gzstream
+	url = https://bitbucket.org/tianchaijz/gzstream
+	branch = master
