@@ -9,8 +9,3 @@ add_library(fluorine
     )
 
 target_link_libraries(fluorine fmt snet hiredis ${BOOSTTH_LIBRARY} ${BOOSTSYS_LIBRARY} ${BOOSTPO_LIBRARY} ${BOOSTIOS_LIBRARY} z)
-
-add_executable(Split
-    Split.cpp
-    )
-target_link_libraries(Split ${BOOSTSYS_LIBRARY} ${BOOSTPO_LIBRARY} ${BOOSTIOS_LIBRARY} ${GZSTREAM_LIBRARY} z)

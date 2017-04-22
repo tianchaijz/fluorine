@@ -66,5 +66,6 @@ target_link_libraries(Fluorine fluorine snet)
 
 add_subdirectory(src)
 add_subdirectory(t)
+add_subdirectory(util)
 add_subdirectory(external/fmt)
 add_subdirectory(external/snet)
