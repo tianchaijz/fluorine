@@ -72,7 +72,7 @@ const std::string currentDateTime() {
 }
 
 struct GzipLineSplitter {
-  using OFStreamType = std::shared_ptr<std::ofstream>;
+  using OFStreamType = std::unique_ptr<std::ofstream>;
   GzipLineSplitter(std::string path, int64_t size, std::string prefix,
                    std::string suffix, bool remove)
       : path_(path), size_(size), prefix_(prefix + "_part_"), suffix_(suffix),
@@ -91,8 +91,7 @@ struct GzipLineSplitter {
       out_path_ = prefix_ + std::to_string(out_index_) + "." + suffix_;
       std::cout << fmt::format("[{}] [WRITE] {}", currentDateTime(), out_path_)
                 << std::endl;
-      OFStreamType out_fd(new std::ofstream(out_path_, std::ios::binary));
-      out_fd_      = std::move(out_fd);
+      out_fd_.reset(new std::ofstream(out_path_, std::ios::binary));
       out_changed_ = false;
     }
 
