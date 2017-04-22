@@ -1,4 +1,6 @@
 #include <assert.h>
+#include <sys/time.h>
+#include <ctime>
 #include <cstdio>
 #include <string>
 #include <regex>
@@ -6,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "fmt/format.h"
 #include "gzstream/gzstream.h"
 
 #include <boost/program_options.hpp>
@@ -56,6 +59,18 @@ void parseOption(int argc, char *argv[], Option &opt) {
   }
 }
 
+const std::string currentDateTime() {
+  char fmt[64], buf[64];
+  struct timeval tv;
+  struct tm *tm;
+
+  gettimeofday(&tv, nullptr);
+  tm = localtime(&tv.tv_sec);
+  strftime(fmt, sizeof(fmt), "%Y-%m-%d %H:%M:%S.%%06u", tm);
+  snprintf(buf, sizeof(buf), fmt, tv.tv_usec);
+  return buf;
+}
+
 struct GzipLineSplitter {
   using OFStreamType = std::shared_ptr<std::ofstream>;
   GzipLineSplitter(std::string path, int64_t size, std::string prefix,
@@ -74,7 +89,8 @@ struct GzipLineSplitter {
 
     if (out_changed_) {
       out_path_ = prefix_ + std::to_string(out_index_) + "." + suffix_;
-      std::cout << "[WRITE] " + out_path_ << std::endl;
+      std::cout << fmt::format("[{}] [WRITE] {}", currentDateTime(), out_path_)
+                << std::endl;
       OFStreamType out_fd(new std::ofstream(out_path_, std::ios::binary));
       out_fd_      = std::move(out_fd);
       out_changed_ = false;
@@ -119,7 +135,8 @@ struct GzipLineSplitter {
     DoSplit();
 
     if (remove_) {
-      std::cout << "[REMOVE] " + path_ << std::endl;
+      std::cout << fmt::format("[{}] [REMOVE] {}", currentDateTime(), path_)
+                << std::endl;
       std::remove(path_.c_str());
     }
   }
