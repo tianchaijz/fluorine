@@ -7,13 +7,12 @@
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <boost/algorithm/string/predicate.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
-#include <boost/iostreams/filtering_stream.hpp>
 
 #include "fmt/format.h"
 #include "spdlog/spdlog.h"
 #include "snet/EventLoop.h"
 #include "snet/Timer.h"
+#include "gzstream/gzstream.h"
 
 #include "fluorine/Macros.hpp"
 #include "fluorine/Option.hpp"
@@ -315,21 +314,13 @@ void producer(std::string path) {
 
 void gzip_producer(std::string path) {
   namespace bio = boost::iostreams;
-  try {
-    std::ifstream is(path, std::ios_base::in | std::ios_base::binary);
-    if (!is.is_open()) {
-      logger->error("cannot open: {}", path);
-      return;
-    }
-
-    bio::filtering_stream<bio::input> in;
-    in.push(bio::gzip_decompressor());
-    in.push(is);
-
-    produce(in);
-  } catch (const bio::gzip_error &e) {
-    logger->error("{} gzip error: {}", path, e.what());
+  igzstream is(path.c_str(), std::ios_base::in | std::ios_base::binary);
+  if (!is.good()) {
+    logger->error("cannot open: {}", path);
+    return;
   }
+
+  produce(is);
 }
 
 void cycle(std::string path, Option &opt, Config &cfg) {
