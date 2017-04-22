@@ -43,6 +43,17 @@ set_target_properties(hiredis PROPERTIES
     IMPORTED_LOCATION_NOCONFIG "${HIREDIS_LIBRARY}")
 add_dependencies(hiredis build_hiredis)
 
+set(GZSTREAM_LIBRARY ${CMAKE_CURRENT_SOURCE_DIR}/external/gzstream/libgzstream.a)
+add_custom_target(build_gzstream ALL
+    COMMAND ${CMAKE_MAKE_PROGRAM}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/gzstream
+    COMMENT "Built gzstream")
+add_library(gzstream STATIC IMPORTED)
+set_property(TARGET gzstream APPEND PROPERTY IMPORTED_CONFIGURATIONS NOCONFIG)
+set_target_properties(gzstream PROPERTIES
+    IMPORTED_LOCATION_NOCONFIG "${GZSTREAM_LIBRARY}")
+add_dependencies(gzstream build_gzstream)
+
 add_executable(Fluorine
     src/Fluorine.cpp
     )
@@ -55,5 +66,6 @@ target_link_libraries(Fluorine fluorine snet)
 
 add_subdirectory(src)
 add_subdirectory(t)
+add_subdirectory(util)
 add_subdirectory(external/fmt)
 add_subdirectory(external/snet)
