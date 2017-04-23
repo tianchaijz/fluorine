@@ -109,7 +109,7 @@ inline bool ip_handler(Document &doc, string k, string v) {
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
   std::vector<string> fields(IPResolver::FieldNumber, "unknown");
-  if (v.find(':' == std::string::npos /* ipv4 */)) {
+  if (v.find(':') == std::string::npos /* ipv4 */) {
     char *result;
     if (util::ResolveIP(v, &result)) {
       int i   = 0;
