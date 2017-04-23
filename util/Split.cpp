@@ -133,6 +133,13 @@ struct GzipLineSplitter {
 
     DoSplit();
 
+    if (!in_fd_.eof()) {
+      std::cout << fmt::format("[{}] [ERROR] partial split: {}",
+                               currentDateTime(), path_)
+                << std::endl;
+      return;
+    }
+
     if (remove_) {
       std::cout << fmt::format("[{}] [REMOVE] {}", currentDateTime(), path_)
                 << std::endl;
