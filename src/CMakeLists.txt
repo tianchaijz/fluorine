@@ -8,4 +8,4 @@ add_library(fluorine
     util/IPResolver.cpp
     )
 
-target_link_libraries(fluorine fmt snet hiredis ${BOOSTTH_LIBRARY} ${BOOSTSYS_LIBRARY} ${BOOSTPO_LIBRARY} ${GZSTREAM_LIBRARY} z)
+target_link_libraries(fluorine fmt snet hiredis gzstream ${BOOSTTH_LIBRARY} ${BOOSTSYS_LIBRARY} ${BOOSTPO_LIBRARY} z)
