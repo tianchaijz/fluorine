@@ -18,7 +18,7 @@ void InitIPResolver(const std::string &db_path) {
   }
 }
 
-bool ResolveIP(const std::string &ip, char **result) {
+bool ResolveIP(const std::string &ip, IPResolver::ResultType **result) {
   return resolver->Resolve(ip, result);
 }
 
@@ -29,6 +29,9 @@ bool ResolveIP(const std::string &ip, char **result) {
 #define B2IU(b)                                                               \
   (((b)[3] & 0xFF) | (((b)[2] << 8) & 0xFF00) | (((b)[1] << 16) & 0xFF0000) | \
    (((b)[0] << 24) & 0xFF000000))
+
+IPResolver::ResultType IPResolver::UnknownResult =
+    IPResolver::ResultType(IPResolver::FieldNumber, "unknown");
 
 IPResolver::IPResolver(const char *db_path) {
   FILE *fd = fopen(db_path, "rb");
@@ -73,7 +76,15 @@ private:
   boost::spirit::qi::rule<Iterator, std::vector<uint>()> ip;
 };
 
-bool IPResolver::Resolve(const std::string &ip, char **result) {
+bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
+  static char buf[ResultLengthMax + 1];
+  static ResultType ipv6(FieldNumber, "IPv6");
+
+  if (ip.find(':') != std::string::npos) {
+    *result = &ipv6;
+    return true;
+  }
+
   auto res = lru_.get(ip);
   if (res) {
     *result = res->get();
@@ -108,13 +119,29 @@ bool IPResolver::Resolve(const std::string &ip, char **result) {
     return false;
   }
 
-  std::shared_ptr<char> data(new char[index_length + 1],
-                             std::default_delete<char[]>());
-  *result = data.get();
-  memcpy(*result, data_ + offset_ + index_offset - 1024, index_length);
-  (*result)[index_length] = '\0';
+  memcpy(buf, data_ + offset_ + index_offset - 1024, index_length);
+  buf[index_length] = '\0';
 
-  lru_.insert(ip, std::move(data));
+  LRUValueType fields(new ResultType());
+  fields->reserve(FieldNumber);
+
+  int n   = 0;
+  char *s = buf, *e = buf;
+  while (*e && n < FieldNumber) {
+    if (*e == '\t') {
+      fields->emplace_back(s, e);
+      s = e + 1;
+      ++n;
+    }
+    ++e;
+  }
+
+  if (n < FieldNumber) {
+    fields->emplace_back(s, e);
+  }
+
+  *result = fields.get();
+  lru_.insert(ip, std::move(fields));
 
   return true;
 }

@@ -108,36 +108,15 @@ inline bool ip_handler(Document &doc, string k, string v) {
   Value key(k.c_str(), doc.GetAllocator()), val(v.c_str(), doc.GetAllocator());
   doc.AddMember(key.Move(), val.Move(), doc.GetAllocator());
 
-  std::vector<string> fields(IPResolver::FieldNumber, "unknown");
-  if (v.find(':') == std::string::npos /* ipv4 */) {
-    char *result;
-    if (util::ResolveIP(v, &result)) {
-      int i   = 0;
-      char *s = result, *e = result;
-      while (*e) {
-        if (*e == '\t') {
-          if (i < IPResolver::FieldNumber) {
-            fields[i++] = string(s, e);
-          }
-          s = e + 1;
-        }
-        ++e;
-      }
-
-      if (i < IPResolver::FieldNumber) {
-        fields[i] = string(s, e);
-      }
-    }
-  } else {
-    fields[0] = "ipv6";
-    fields[1] = "ipv6";
-    fields[2] = "ipv6";
+  IPResolver::ResultType *result;
+  if (!util::ResolveIP(v, &result)) {
+    result = &IPResolver::UnknownResult;
   }
 
-  string_handler(doc, k + "@country", fields[0]);
-  string_handler(doc, k + "@province", fields[1]);
-  string_handler(doc, k + "@city", fields[2]);
-  string_handler(doc, k + "@isp", fields[4]);
+  string_handler(doc, k + "@country", IPResolver::GetCountry(*result));
+  string_handler(doc, k + "@province", IPResolver::GetProvince(*result));
+  string_handler(doc, k + "@city", IPResolver::GetCity(*result));
+  string_handler(doc, k + "@isp", IPResolver::GetISP(*result));
 
   return true;
 };
