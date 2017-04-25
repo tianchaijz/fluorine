@@ -48,7 +48,7 @@ static bool done                = false;
 
 void loop(std::string backend_ip, unsigned short backend_port,
           const Config &config, std::string path) {
-  auto event_loop = snet::CreateEventLoop();
+  auto event_loop = snet::CreateEventLoop(1000000);
   snet::TimerList timer_list;
   Frontend frontend(backend_ip, backend_port, event_loop.get(), &timer_list);
 
@@ -79,6 +79,7 @@ void loop(std::string backend_ip, unsigned short backend_port,
           new snet::Buffer(ch, json.size() + 1, snet::OpDeleter));
       frontend.Send(std::move(data));
     }
+    boost::this_thread::sleep(boost::posix_time::milliseconds(1));
   };
 
   snet::Timer send_timer(&timer_list);
@@ -107,7 +108,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
          const Config &config, std::string path) {
   auto aggregation = config.aggregation_;
   auto agg_key     = aggregation->key_.c_str();
-  auto event_loop  = snet::CreateEventLoop();
+  auto event_loop  = snet::CreateEventLoop(1000000);
   snet::TimerList timer_list;
   Frontend frontend(backend_ip, backend_port, event_loop.get(), &timer_list);
 
@@ -269,6 +270,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
         lru.insert(timestamp, std::move(doc));
       }
     }
+    boost::this_thread::sleep(boost::posix_time::milliseconds(1));
   };
 
   snet::Timer send_timer(&timer_list);
