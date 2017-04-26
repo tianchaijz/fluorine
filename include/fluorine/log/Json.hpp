@@ -334,6 +334,7 @@ bool ToJsonString(Log &log, std::string &json, const Config &cfg);
 } // namespace json
 } // namespace fluorine
 
+// clang-format off
 BOOST_FUSION_ADAPT_STRUCT(fluorine::json::TimeLocal,
     (int, day_)
     (std::string, mon_)
@@ -352,3 +353,4 @@ BOOST_FUSION_ADAPT_STRUCT(fluorine::json::TimeDate,
     (int, hour_)
     (int, min_)
     (int, sec_))
+// clang-format on

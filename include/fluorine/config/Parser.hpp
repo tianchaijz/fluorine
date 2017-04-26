@@ -81,6 +81,7 @@ bool ParseConfig(const std::string &path, Config &cfg);
 } // namespace config
 } // namespace fluorine
 
+// clang-format off
 BOOST_FUSION_ADAPT_STRUCT(fluorine::config::Config,
     (std::string, name_)
     (int, field_number_)
@@ -98,3 +99,4 @@ BOOST_FUSION_ADAPT_STRUCT(fluorine::config::Aggregation,
     (std::string, time_)
     (int, interval_)
     (boost::optional<std::vector<std::string>>, fields_))
+// clang-format on

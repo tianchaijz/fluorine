@@ -26,6 +26,7 @@ void ParseOption(int argc, char *argv[], Option &opt) {
   using namespace boost::program_options;
   try {
     options_description desc("Usage");
+    // clang-format off
     desc.add_options()
       ("help,h", "print usage message")
       ("config,c", value(&opt.config_path_), "config file path")
@@ -38,6 +39,7 @@ void ParseOption(int argc, char *argv[], Option &opt) {
       ("listen-port", value(&opt.frontend_port_)->default_value(5565), "listen port")
       ("server-ip", value(&opt.backend_ip_)->default_value("127.0.0.1"), "server ip")
       ("server-port", value(&opt.backend_port_)->default_value(5566), "server port");
+    // clang-format on
 
     variables_map vm;
     store(parse_command_line(argc, argv, desc), vm);
