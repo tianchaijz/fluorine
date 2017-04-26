@@ -5,7 +5,6 @@
 #include <vector>
 #include <memory>
 
-#include "fluorine/Macros.hpp"
 #include "fluorine/util/LRUCache.hpp"
 
 namespace fluorine {

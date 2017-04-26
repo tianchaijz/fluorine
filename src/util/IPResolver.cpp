@@ -4,6 +4,7 @@
 #include <boost/spirit/include/qi.hpp>
 
 #include "spdlog/spdlog.h"
+#include "fluorine/Macros.hpp"
 #include "fluorine/util/IPResolver.hpp"
 
 static auto logger = spdlog::stdout_color_st("IP Resolver");
@@ -35,6 +36,10 @@ IPResolver::ResultType IPResolver::UnknownResult =
 
 IPResolver::IPResolver(const char *db_path) {
   FILE *fd = fopen(db_path, "rb");
+  if (fd == nullptr) {
+    perror(db_path);
+    exit(1);
+  }
 
   fseek(fd, 0, SEEK_END);
   size_t size = ftell(fd);
