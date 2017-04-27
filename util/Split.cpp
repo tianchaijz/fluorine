@@ -59,7 +59,12 @@ void parseOption(int argc, char *argv[], Option &opt) {
   }
 }
 
-const std::string currentDateTime() {
+template <typename... Args>
+void Log(const std::string &format, Args... args) {
+  std::cout << fmt::format(format, args...) << std::endl;
+}
+
+const std::string Time() {
   char fmt[64], buf[64];
   struct timeval tv;
   struct tm *tm;
@@ -71,8 +76,21 @@ const std::string currentDateTime() {
   return buf;
 }
 
+inline void Rename(const char *src, const char *dest) {
+  if (strlen(src) == 0 || strlen(dest) == 0) {
+    return;
+  }
+
+  int rc = std::rename(src, dest);
+  if (rc) {
+    Log("[{}] [ERROR] rename {} to {}: {}", Time(), src, dest, strerror(errno));
+  } else {
+    Log("[{}] [WRITE] {}", Time(), dest);
+  }
+}
+
 struct GzipLineSplitter {
-  using OFStreamType = std::unique_ptr<std::ofstream>;
+  using OFStreamType = std::unique_ptr<ogzstream>;
   GzipLineSplitter(std::string path, int64_t size, std::string prefix,
                    std::string suffix, bool remove)
       : path_(path), size_(size), prefix_(prefix + "_part_"), suffix_(suffix),
@@ -80,34 +98,25 @@ struct GzipLineSplitter {
         in_fd_(path_.c_str(), std::ios_base::in | std::ios_base::binary),
         out_index_(0), out_changed_(true) {}
 
-  ~GzipLineSplitter() {}
-
-  void Write(const std::string &data) {
-    if (data.empty()) {
+  ~GzipLineSplitter() {
+    if (!in_fd_.eof()) {
+      Log("[{}] [ERROR] partial split: {}", Time(), path_);
       return;
     }
 
-    if (out_changed_) {
-      out_path_ = prefix_ + std::to_string(out_index_) + "." + suffix_;
-      std::cout << fmt::format("[{}] [WRITE] {}", currentDateTime(), out_path_)
-                << std::endl;
-      out_fd_.reset(new std::ofstream(out_path_, std::ios::binary));
-      out_changed_ = false;
+    Rename(out_temp_path_.c_str(), out_path_.c_str());
+
+    if (remove_) {
+      Log("[{}] [REMOVE] {}", Time(), path_);
+      std::remove(path_.c_str());
     }
 
-    ASSERT(out_fd_->is_open());
-
-    std::stringstream origin(data);
-    std::stringstream compressed;
-    bio::filtering_streambuf<bio::input> out;
-    out.push(bio::gzip_compressor(bio::gzip_params(bio::gzip::best_speed)));
-    out.push(origin);
-    bio::copy(out, compressed);
-
-    *out_fd_ << compressed.rdbuf();
+    std::ofstream(path_ + "__splitted", std::ios::out);
   }
 
-  inline void DoSplit() {
+  void Split() {
+    ASSERT(in_fd_.good());
+
     std::string line, buf;
     int64_t nr = 0;
     while (std::getline(in_fd_, line)) {
@@ -128,26 +137,29 @@ struct GzipLineSplitter {
     Write(buf);
   }
 
-  void Split() {
-    ASSERT(in_fd_.good());
-
-    DoSplit();
-
-    if (!in_fd_.eof()) {
-      std::cout << fmt::format("[{}] [ERROR] partial split: {}",
-                               currentDateTime(), path_)
-                << std::endl;
+private:
+  void Write(const std::string &data) {
+    if (data.empty()) {
       return;
     }
 
-    if (remove_) {
-      std::cout << fmt::format("[{}] [REMOVE] {}", currentDateTime(), path_)
-                << std::endl;
-      std::remove(path_.c_str());
+    if (out_changed_) {
+      Rename(out_temp_path_.c_str(), out_path_.c_str());
+
+      out_path_      = prefix_ + std::to_string(out_index_) + "." + suffix_;
+      out_temp_path_ = out_path_ + "__temp";
+
+      out_fd_.reset(new ogzstream(out_temp_path_.c_str(),
+                                  std::ios::binary | std::ios::out,
+                                  ogzstream::compression_level::best_speed));
+      ASSERT(out_fd_);
+      out_changed_ = false;
     }
+
+    ASSERT(out_fd_->good());
+    out_fd_->write(data.c_str(), data.size());
   }
 
-private:
   std::string path_;
   int64_t size_;
   std::string prefix_;
@@ -158,6 +170,7 @@ private:
 
   int64_t out_index_;
   std::string out_path_;
+  std::string out_temp_path_;
   OFStreamType out_fd_;
   bool out_changed_;
 };

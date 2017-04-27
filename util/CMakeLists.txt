@@ -1,4 +1,4 @@
 add_executable(Split
     Split.cpp
     )
-target_link_libraries(Split fmt ${BOOSTSYS_LIBRARY} ${BOOSTPO_LIBRARY} ${BOOSTIOS_LIBRARY} ${GZSTREAM_LIBRARY} z)
+target_link_libraries(Split fmt ${BOOSTPO_LIBRARY} ${GZSTREAM_LIBRARY} z)
