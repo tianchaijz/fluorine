@@ -29,6 +29,7 @@ struct Option {
   std::string path_;
   int64_t size_;
   bool remove_ = false;
+  bool rename_ = false;
 };
 
 void parseOption(int argc, char *argv[], Option &opt) {
@@ -43,6 +44,8 @@ void parseOption(int argc, char *argv[], Option &opt) {
                        "split size");
     desc.add_options()("remove", bool_switch(&opt.remove_),
                        "remove the file to split");
+    desc.add_options()("rename", bool_switch(&opt.rename_),
+                       "rename the file to split");
 
     variables_map vm;
     store(parse_command_line(argc, argv, desc), vm);
@@ -85,18 +88,23 @@ inline void Rename(const char *src, const char *dest) {
   if (rc) {
     Log("[{}] [ERROR] rename {} to {}: {}", Time(), src, dest, strerror(errno));
   } else {
-    Log("[{}] [WRITE] {}", Time(), dest);
+    Log("[{}] [RENAME] {}", Time(), dest);
   }
 }
 
 struct GzipLineSplitter {
   using OFStreamType = std::unique_ptr<ogzstream>;
   GzipLineSplitter(std::string path, int64_t size, std::string prefix,
-                   std::string suffix, bool remove)
+                   std::string suffix, bool remove, bool rename)
       : path_(path), size_(size), prefix_(prefix + "_part_"), suffix_(suffix),
-        remove_(remove),
+        remove_(remove), rename_(rename),
         in_fd_(path_.c_str(), std::ios_base::in | std::ios_base::binary),
-        out_index_(0), out_changed_(true) {}
+        out_index_(0), out_changed_(true) {
+    if (rename_) {
+      path_ += "__splitting";
+      Rename(path.c_str(), path_.c_str());
+    }
+  }
 
   ~GzipLineSplitter() {
     if (!in_fd_.eof()) {
@@ -165,6 +173,7 @@ private:
   std::string prefix_;
   std::string suffix_;
   bool remove_;
+  bool rename_;
 
   igzstream in_fd_;
 
@@ -191,7 +200,7 @@ int main(int argc, char *argv[]) {
 
   auto p = parsePath(opt.path_);
   GzipLineSplitter splitter(opt.path_, opt.size_, p.first, p.second,
-                            opt.remove_);
+                            opt.remove_, opt.rename_);
   splitter.Split();
 
   return 0;
