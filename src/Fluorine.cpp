@@ -1,10 +1,11 @@
 #include <signal.h>
 #include <stdint.h>
+#include <chrono>
+#include <thread>
 #include <fstream>
 #include <algorithm>
 #include <functional>
 #include <boost/functional/hash.hpp>
-#include <boost/thread/thread.hpp>
 #include <boost/lockfree/spsc_queue.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -79,7 +80,7 @@ void loop(std::string backend_ip, unsigned short backend_port,
           new snet::Buffer(ch, json.size() + 1, snet::OpDeleter));
       frontend.Send(std::move(data));
     }
-    boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   };
 
   snet::Timer send_timer(&timer_list);
@@ -195,7 +196,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
 
   LRUType::OnEvict oe = [&frontend, &send](std::unique_ptr<Document> &doc) {
     while (!frontend.CanSend()) {
-      boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     rapidjson::Value &count = (*doc)["count"];
     total += count.GetInt64();
@@ -206,7 +207,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
   LRUType::OnClear oc = [&frontend, &send](LRUType::map_type &m) {
     for (auto &p : m) {
       while (!frontend.CanSend()) {
-        boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
 
       rapidjson::Value &count = (*p.second.first)["count"];
@@ -270,7 +271,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
         lru.insert(timestamp, std::move(doc));
       }
     }
-    boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   };
 
   snet::Timer send_timer(&timer_list);
@@ -300,7 +301,7 @@ inline void produce(T &is) {
       logger->info("input lines: {}", lines);
     }
     while (!queue.push(std::move(line)))
-      boost::this_thread::sleep(boost::posix_time::milliseconds(1));
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 
@@ -315,7 +316,6 @@ void producer(std::string path) {
 }
 
 void gzip_producer(std::string path) {
-  namespace bio = boost::iostreams;
   igzstream is(path.c_str(), std::ios_base::in | std::ios_base::binary);
   if (!is.good()) {
     logger->error("cannot open: {}", path);
@@ -327,12 +327,12 @@ void gzip_producer(std::string path) {
 
 void cycle(std::string path, Option &opt, Config &cfg) {
   TimerGuard tg;
-  boost::thread loop_thread;
+  std::thread loop_thread;
   if (cfg.aggregation_) {
-    loop_thread = boost::thread(std::bind(
-        agg, opt.backend_ip_, opt.backend_port_, std::cref(cfg), path));
+    loop_thread = std::thread(std::bind(agg, opt.backend_ip_, opt.backend_port_,
+                                        std::cref(cfg), path));
   } else {
-    loop_thread = boost::thread(std::bind(
+    loop_thread = std::thread(std::bind(
         loop, opt.backend_ip_, opt.backend_port_, std::cref(cfg), path));
   }
 
@@ -343,7 +343,7 @@ void cycle(std::string path, Option &opt, Config &cfg) {
   }
 
   done = true;
-  loop_thread.timed_join(boost::posix_time::seconds(15));
+  loop_thread.join();
 
   logger->info("input: {}, handle: {}, aggregation: {}, {}%", lines, total,
                aggre, total == 0 ? 0 : aggre * 100.0 / total);
@@ -398,7 +398,7 @@ int main(int argc, char *argv[]) {
     for (;;) {
       auto reply = redis->RedisCommand("GET Log:Stop");
       if (reply && reply->type == REDIS_REPLY_STRING) {
-        boost::this_thread::sleep(boost::posix_time::seconds(2));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         continue;
       }
 
@@ -429,7 +429,7 @@ int main(int argc, char *argv[]) {
         done = false;
         cycle(path.GetString(), opt, cfg);
       } else {
-        boost::this_thread::sleep(boost::posix_time::seconds(2));
+        std::this_thread::sleep_for(std::chrono::seconds(2));
       }
     }
   } else {

@@ -1,5 +1,6 @@
 #include <sys/time.h>
-#include <boost/thread/thread.hpp>
+#include <chrono>
+#include <thread>
 
 #include "spdlog/spdlog.h"
 #include "fluorine/util/Redis.hpp"
@@ -53,8 +54,8 @@ void RedisConnection::EnsureRedisConnection() {
       state_ = kConnected;
       return;
     }
-    boost::this_thread::sleep(
-        boost::posix_time::milliseconds(reconnect_interval_ms_));
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(reconnect_interval_ms_));
   }
 }
 

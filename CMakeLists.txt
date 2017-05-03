@@ -10,7 +10,7 @@ set(CMAKE_CXX_FLAGS
     "-std=c++11 -Wall -Wextra -Wno-unused -Wno-unused-parameter")
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
 endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
@@ -23,7 +23,6 @@ find_package(Boost REQUIRED)
 find_library(BOOSTPO_LIBRARY NAMES boost_program_options HINTS /usr/lib/x86_64-linux-gnu)
 find_library(BOOSTSYS_LIBRARY NAMES boost_system HINTS /usr/lib/x86_64-linux-gnu)
 find_library(BOOSTIOS_LIBRARY NAMES boost_iostreams HINTS /usr/lib/x86_64-linux-gnu)
-find_library(BOOSTTH_LIBRARY NAMES boost_thread boost_thread-mt HINTS /usr/lib/x86_64-linux-gnu)
 
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
