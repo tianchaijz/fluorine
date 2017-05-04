@@ -21,3 +21,7 @@
 	path = external/gperftools
 	url = https://github.com/gperftools/gperftools.git
 	branch = master
+[submodule "external/jemalloc"]
+	path = external/jemalloc
+	url = https://github.com/jemalloc/jemalloc
+	branch = master
