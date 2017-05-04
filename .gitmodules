@@ -17,3 +17,7 @@
 	path = external/gzstream
 	url = https://bitbucket.org/tianchaijz/gzstream
 	branch = master
+[submodule "external/gperftools"]
+	path = external/gperftools
+	url = https://github.com/gperftools/gperftools.git
+	branch = master
