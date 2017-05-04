@@ -327,9 +327,9 @@ const Handlers handlers = {
     {"status", status_handler},
 };
 
-bool DocToString(Document *doc, std::string &json);
+bool JsonDocToString(Document *doc, std::string &json);
 bool PopulateJsonDoc(Document *doc, const Log &log, const Config &cfg);
-bool ToJsonString(Log &log, std::string &json, const Config &cfg);
+bool LogToJsonString(Log &log, std::string &json, const Config &cfg);
 
 } // namespace json
 } // namespace fluorine

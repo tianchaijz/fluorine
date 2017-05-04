@@ -72,7 +72,7 @@ void loop(std::string backend_ip, unsigned short backend_port,
       }
 
       std::string json;
-      DocToString(doc.get(), json);
+      JsonDocToString(doc.get(), json);
       char *ch        = new char[json.size() + 1];
       ch[json.size()] = '\n';
       std::copy(json.begin(), json.end(), ch);

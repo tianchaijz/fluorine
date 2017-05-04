@@ -12,7 +12,7 @@ namespace json {
 std::set<std::string> IPFields{"country", "province", "city", "isp"};
 std::set<std::string> RequestFields{"method", "scheme", "domain"};
 
-bool DocToString(Document *doc, std::string &json) {
+bool JsonDocToString(Document *doc, std::string &json) {
   StringBuffer sb;
   Writer<StringBuffer> writer(sb);
   doc->Accept(writer);
@@ -77,7 +77,7 @@ bool PopulateJsonDoc(Document *doc, const Log &log, const Config &cfg) {
   return true;
 }
 
-bool ToJsonString(Log &log, std::string &json, const Config &cfg) {
+bool LogToJsonString(Log &log, std::string &json, const Config &cfg) {
   Document doc;
   if (PopulateJsonDoc(&doc, log, cfg)) {
     StringBuffer sb;
