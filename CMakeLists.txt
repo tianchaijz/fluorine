@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.1)
 
 project(fluorine)
+include(ExternalProject)
+
+option(USE_TCMALLOC "Use the tcmalloc library" ON)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
@@ -17,6 +20,39 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
 set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/lib")
+
+set(GPERFTOOLS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/external/gperftools)
+set(JEMALLOC_PATH ${CMAKE_CURRENT_SOURCE_DIR}/external/jemalloc)
+
+ExternalProject_Add(gperftools
+    SOURCE_DIR ${GPERFTOOLS_PATH}
+    BINARY_DIR ${GPERFTOOLS_PATH}
+    STAMP_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/build
+    TMP_DIR    ${CMAKE_CURRENT_SOURCE_DIR}/build
+    CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${LIBRARY_OUTPUT_PATH}/gperftools
+    BUILD_COMMAND make -j 8
+    INSTALL_COMMAND make install
+    )
+
+ExternalProject_Add(jemalloc
+    SOURCE_DIR ${JEMALLOC_PATH}
+    BINARY_DIR ${JEMALLOC_PATH}
+    STAMP_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/build
+    TMP_DIR    ${CMAKE_CURRENT_SOURCE_DIR}/build
+    CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${LIBRARY_OUTPUT_PATH}/jemalloc
+    BUILD_COMMAND make -j 8
+    INSTALL_COMMAND sh -c "make install || exit 0"
+    )
+
+add_library(libtcmalloc UNKNOWN IMPORTED)
+add_library(libjemalloc UNKNOWN IMPORTED)
+
+set_target_properties(libtcmalloc PROPERTIES
+    IMPORTED_LOCATION ${LIBRARY_OUTPUT_PATH}/gperftools/lib/libtcmalloc_minimal.a
+    )
+set_target_properties(libjemalloc PROPERTIES
+    IMPORTED_LOCATION ${LIBRARY_OUTPUT_PATH}/jemalloc/lib/libjemalloc.a
+    )
 
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED)
@@ -53,15 +89,23 @@ set_target_properties(gzstream PROPERTIES
     IMPORTED_LOCATION_NOCONFIG "${GZSTREAM_LIBRARY}")
 add_dependencies(gzstream build_gzstream)
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    set(CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -static")
+endif()
+
+if (USE_TCMALLOC)
+    set(MALLOC_LIBRARY libtcmalloc)
+else()
+    set(MALLOC_LIBRARY libjemalloc)
+endif()
+
+message(STATUS "Malloc library: ${MALLOC_LIBRARY}")
+
 add_executable(Fluorine
     src/Fluorine.cpp
     )
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    SET(CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -static")
-endif()
-
-target_link_libraries(Fluorine fluorine snet)
+target_link_libraries(Fluorine fluorine snet ${MALLOC_LIBRARY})
 
 add_subdirectory(src)
 add_subdirectory(t)
