@@ -28,6 +28,7 @@ public:
 
   bool Send(std::unique_ptr<snet::Buffer> buffer);
   bool CanSend() { return connection_ && !connection_->SendQueueFull(); }
+  bool SendComplete() { return connection_ && connection_->SendQueueEmpty(); }
 
 private:
   void HandleError();
@@ -61,6 +62,7 @@ public:
   void Connect(const OnConnected &onc);
   bool Send(std::unique_ptr<snet::Buffer> buffer);
   bool CanSend() { return connection_->CanSend(); }
+  bool SendComplete() { return connection_->SendComplete(); }
 
 private:
   void HandleConnect(std::unique_ptr<snet::Connection> connection,
@@ -90,6 +92,7 @@ public:
 
   bool IsEnableSend() { return enable_send_; }
   bool CanSend() { return IsEnableSend() && backend_->CanSend(); }
+  bool SendComplete() { return backend_->SendComplete(); }
   void Send(std::unique_ptr<snet::Buffer> data) {
     backend_->Send(std::move(data));
   }

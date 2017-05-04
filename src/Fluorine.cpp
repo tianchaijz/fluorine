@@ -84,12 +84,15 @@ void loop(std::string backend_ip, unsigned short backend_port,
   };
 
   snet::Timer send_timer(&timer_list);
-  auto callback = [&event_loop, &send_timer, &handler]() {
+  auto callback = [&event_loop, &send_timer, &handler, &frontend]() {
     if (done && queue.empty()) {
-      event_loop->Stop();
-      return;
+      if (frontend.SendComplete()) {
+        event_loop->Stop();
+        return;
+      }
+    } else {
+      handler();
     }
-    handler();
     send_timer.ExpireFromNow(snet::Milliseconds(1));
   };
   send_timer.ExpireFromNow(snet::Milliseconds(0));
@@ -166,7 +169,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
 
   auto send = [&frontend](std::unique_ptr<Document> &doc) {
     std::string json;
-    DocToString(doc.get(), json);
+    JsonDocToString(doc.get(), json);
     char *ch        = new char[json.size() + 1];
     ch[json.size()] = '\n';
     std::copy(json.begin(), json.end(), ch);
@@ -195,9 +198,6 @@ void agg(std::string backend_ip, unsigned short backend_port,
   };
 
   LRUType::OnEvict oe = [&frontend, &send](std::unique_ptr<Document> &doc) {
-    while (!frontend.CanSend()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
     rapidjson::Value &count = (*doc)["count"];
     total += count.GetInt64();
     ++aggre;
@@ -206,10 +206,6 @@ void agg(std::string backend_ip, unsigned short backend_port,
 
   LRUType::OnClear oc = [&frontend, &send](LRUType::map_type &m) {
     for (auto &p : m) {
-      while (!frontend.CanSend()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      }
-
       rapidjson::Value &count = (*p.second.first)["count"];
       total += count.GetInt64();
       ++aggre;
@@ -398,7 +394,7 @@ int main(int argc, char *argv[]) {
     for (;;) {
       auto reply = redis->RedisCommand("GET Log:Stop");
       if (reply && reply->type == REDIS_REPLY_STRING) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(2));
         continue;
       }
 
