@@ -118,8 +118,6 @@ struct GzipLineSplitter {
       Log("[{}] [REMOVE] {}", Time(), path_);
       std::remove(path_.c_str());
     }
-
-    std::ofstream(path_ + "__splitted", std::ios::out);
   }
 
   void Split() {
@@ -154,7 +152,7 @@ private:
     if (out_changed_) {
       Rename(out_temp_path_.c_str(), out_path_.c_str());
 
-      out_path_      = prefix_ + std::to_string(out_index_) + "." + suffix_;
+      out_path_      = prefix_ + std::to_string(out_index_) + suffix_;
       out_temp_path_ = out_path_ + "__temp";
 
       out_fd_.reset(new ogzstream(out_temp_path_.c_str(),
@@ -185,7 +183,7 @@ private:
 };
 
 std::pair<std::string, std::string> parsePath(std::string path) {
-  std::regex re("^(.+?)\\.([^.]+)$");
+  std::regex re("^(.+?)(\\.[^.]+)$");
   std::smatch m;
   if (std::regex_search(path, m, re)) {
     return std::make_pair(m[1], m[2]);
