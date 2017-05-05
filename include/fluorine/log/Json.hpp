@@ -174,7 +174,7 @@ inline bool time_local_handler(Document &doc, string k, string s) {
       {"Jan", 0}, {"Feb", 1}, {"Mar", 2}, {"Apr", 3}, {"May", 4},  {"Jun", 5},
       {"Jul", 6}, {"Aug", 7}, {"Sep", 8}, {"Oct", 9}, {"Nov", 10}, {"Dec", 11}};
 
-  TimeLocalGrammar<> g;
+  static TimeLocalGrammar<> g;
   TimeLocal tl;
 
   bool ok = qi::parse(s.begin(), s.end(), g, tl);
@@ -209,7 +209,7 @@ inline bool time_local_handler(Document &doc, string k, string s) {
 }
 
 inline bool time_date_handler(Document &doc, string k, string s) {
-  TimeDateGrammar<> g;
+  static TimeDateGrammar<> g;
   TimeDate td;
 
   bool ok = qi::parse(s.begin(), s.end(), g, td);
@@ -240,7 +240,7 @@ inline bool time_date_handler(Document &doc, string k, string s) {
 
 // request handler, like: "GET http:://foo.com/bar"
 inline bool request_handler(Document &doc, string, string s) {
-  RequestGrammar<> g;
+  static RequestGrammar<> g;
   Request request;
   auto begin = s.begin();
   auto end   = s.end();

@@ -1,3 +1,4 @@
+#include <memory>
 #include <fstream>
 #include <iostream>
 
@@ -11,10 +12,17 @@ namespace fluorine {
 namespace log {
 bool ParseLog(std::string &line, Log &log, unsigned int field_number,
               unsigned int time_index) {
-  Grammar<iterator_type> g(field_number, time_index);
+  static unsigned int fn_cache = field_number;
+  static unsigned int ti_cache = time_index;
+  static std::unique_ptr<Grammar<iterator_type>> g(
+      new Grammar<iterator_type>(field_number, time_index));
+  if (field_number != fn_cache || time_index != ti_cache) {
+    g.reset(new Grammar<iterator_type>(field_number, time_index));
+  }
+
   iterator_type begin = line.begin();
   iterator_type end   = line.end();
-  bool ok             = qi::phrase_parse(begin, end, g, qi::space, log);
+  bool ok             = qi::phrase_parse(begin, end, *g, qi::space, log);
   if (!ok) {
     logger->warn("log parse failed, remaining unparsed: {}",
                  std::string(begin, end));
@@ -32,7 +40,7 @@ const std::string Attribute::STORE  = "1";
 const std::string Attribute::ADD    = "2";
 
 static bool parseConfig(const std::string &content, Config &cfg) {
-  Grammar<iterator_type> g;
+  static Grammar<iterator_type> g;
   Skipper<iterator_type> skip;
   iterator_type begin = content.begin(), end = content.end();
 

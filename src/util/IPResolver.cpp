@@ -84,6 +84,7 @@ private:
 bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
   static char buf[ResultLengthMax + 1];
   static ResultType ipv6(FieldNumber, "IPv6");
+  static IPGrammar<> g;
 
   if (ip.find(':') != std::string::npos) {
     *result = &ipv6;
@@ -96,7 +97,6 @@ bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
     return true;
   }
 
-  IPGrammar<> g;
   std::vector<uint> ips;
   ips.reserve(4);
   bool ok = boost::spirit::qi::parse(ip.begin(), ip.end(), g, ips);
