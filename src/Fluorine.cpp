@@ -71,10 +71,9 @@ void loop(std::string backend_ip, unsigned short backend_port,
                        doc->GetAllocator());
       }
 
-      std::string json;
-      JsonDocToString(doc.get(), json);
-      char *ch        = new char[json.size() + 1];
-      ch[json.size()] = '\n';
+      std::string json = JsonDocToString(doc.get());
+      char *ch         = new char[json.size() + 1];
+      ch[json.size()]  = '\n';
       std::copy(json.begin(), json.end(), ch);
       std::unique_ptr<snet::Buffer> data(
           new snet::Buffer(ch, json.size() + 1, snet::OpDeleter));
@@ -168,10 +167,9 @@ void agg(std::string backend_ip, unsigned short backend_port,
   };
 
   auto send = [&frontend](std::unique_ptr<Document> &doc) {
-    std::string json;
-    JsonDocToString(doc.get(), json);
-    char *ch        = new char[json.size() + 1];
-    ch[json.size()] = '\n';
+    std::string json = JsonDocToString(doc.get());
+    char *ch         = new char[json.size() + 1];
+    ch[json.size()]  = '\n';
     std::copy(json.begin(), json.end(), ch);
     std::unique_ptr<snet::Buffer> data(
         new snet::Buffer(ch, json.size() + 1, snet::OpDeleter));

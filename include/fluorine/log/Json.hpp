@@ -327,7 +327,7 @@ const Handlers handlers = {
     {"status", status_handler},
 };
 
-bool JsonDocToString(Document *doc, std::string &json);
+std::string JsonDocToString(Document *doc);
 bool PopulateJsonDoc(Document *doc, const Log &log, const Config &cfg);
 bool LogToJsonString(Log &log, std::string &json, const Config &cfg);
 
