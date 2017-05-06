@@ -269,14 +269,17 @@ void agg(std::string backend_ip, unsigned short backend_port,
   };
 
   snet::Timer send_timer(&timer_list);
-  auto callback = [&event_loop, &send_timer, &handler, &lru]() {
+  auto callback = [&event_loop, &send_timer, &handler, &lru, &frontend]() {
     if (done && queue.empty()) {
       lru.clear();
-      event_loop->Stop();
-      logger->info("input complete");
-      return;
+      if (frontend.SendComplete()) {
+        event_loop->Stop();
+        logger->info("event loop stopped");
+        return;
+      }
+    } else {
+      handler();
     }
-    handler();
     send_timer.ExpireFromNow(snet::Milliseconds(1));
   };
   send_timer.ExpireFromNow(snet::Milliseconds(0));
