@@ -16,7 +16,10 @@ bool ParseLog(std::string &line, Log &log, unsigned int field_number,
   static unsigned int ti_cache = time_index;
   static std::unique_ptr<Grammar<iterator_type>> g(
       new Grammar<iterator_type>(field_number, time_index));
+
   if (field_number != fn_cache || time_index != ti_cache) {
+    fn_cache = field_number;
+    ti_cache = time_index;
     g.reset(new Grammar<iterator_type>(field_number, time_index));
   }
 
