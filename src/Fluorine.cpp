@@ -224,7 +224,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
         else if (v.IsDouble())
           hash_combine(seed, v.GetDouble());
         else {
-          logger->error("unexpected type: {}", v.GetType());
+          logger->error("unexpected value type: {}, key: {}", v.GetType(), f);
           return false;
         }
       }
@@ -234,18 +234,19 @@ void agg(std::string backend_ip, unsigned short backend_port,
   };
 
   LRUType lru(3600, oi, oa, oe, oc);
-  auto handler = [&frontend, &config, &hash, &lru, &clean_doc]() {
+  auto handler = [&frontend, &config, &hash, &lru, &clean_doc, &path]() {
     std::string line;
     int interval = config.aggregation_->interval_;
     while (frontend.CanSend() && queue.pop(line)) {
       Log log;
       if (!ParseLog(line, log, config.field_number_, config.time_index_)) {
-        logger->warn("bad log: {}", line);
+        logger->warn("{}, bad log: {}", path, line);
+        continue;
       }
 
       std::unique_ptr<rapidjson::Document> doc(new rapidjson::Document());
       if (!PopulateJsonDoc(doc.get(), log, config)) {
-        logger->warn("json error: {}", line);
+        logger->warn("{}, json error: {}", path, line);
         continue;
       }
 

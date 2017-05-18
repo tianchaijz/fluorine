@@ -65,7 +65,6 @@ inline bool int32_handler(Document &doc, string k, string v) {
   try {
     num = std::stoi(v);
   } catch (const std::exception &e) {
-    std::cerr << "int32 error: " << v << std::endl;
     return false;
   }
   val.SetInt(num);
@@ -80,7 +79,6 @@ inline bool int64_handler(Document &doc, string k, string v) {
   try {
     num = std::stoll(v);
   } catch (const std::exception &e) {
-    std::cerr << "int64 error: " << v << std::endl;
     return false;
   }
   val.SetInt64(num);
@@ -95,7 +93,6 @@ inline bool double_handler(Document &doc, string k, string v) {
   try {
     num = std::stod(v);
   } catch (const std::exception &e) {
-    std::cerr << "double error: " << v << std::endl;
     return false;
   }
   val.SetDouble(num);
@@ -247,7 +244,6 @@ inline bool request_handler(Document &doc, string, string s) {
 
   bool ok = parse(begin, end, g, request);
   if (!ok) {
-    std::cerr << "parse request failed: " << s << std::endl;
     return false;
   }
 

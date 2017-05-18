@@ -23,9 +23,6 @@ bool PopulateJsonDoc(Document *doc, const Log &log, const Config &cfg) {
   if (cfg.field_number_ && static_cast<int>(log.size()) != cfg.field_number_) {
     logger->error("invalid log, log fields: {}, expected: {}", log.size(),
                   cfg.field_number_);
-    for (auto &field : log)
-      std::cerr << "<" << field << ">";
-    std::cerr << std::endl;
     return false;
   }
 

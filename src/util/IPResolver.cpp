@@ -101,7 +101,6 @@ bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
   ips.reserve(4);
   bool ok = boost::spirit::qi::parse(ip.begin(), ip.end(), g, ips);
   if (!ok) {
-    logger->error("invalid ip: {}", ip);
     return false;
   }
 
