@@ -71,14 +71,17 @@ IPResolver::~IPResolver() {
 }
 
 template <typename Iterator = std::string::const_iterator>
-struct IPGrammar : boost::spirit::qi::grammar<Iterator, std::vector<uint>()> {
+struct IPGrammar
+    : boost::spirit::qi::grammar<Iterator, std::vector<uint8_t>()> {
   IPGrammar() : IPGrammar::base_type(ip) {
     using namespace boost::spirit::qi;
-    ip = uint_ >> '.' >> uint_ >> '.' >> uint_ >> '.' >> uint_;
+
+    uint_parser<uint8_t, 10, 1, 3> uint8_p;
+    ip = uint8_p >> '.' >> uint8_p >> '.' >> uint8_p >> '.' >> uint8_p;
   }
 
 private:
-  boost::spirit::qi::rule<Iterator, std::vector<uint>()> ip;
+  boost::spirit::qi::rule<Iterator, std::vector<uint8_t>()> ip;
 };
 
 bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
