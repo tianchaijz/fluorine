@@ -4,6 +4,7 @@ project(fluorine)
 include(ExternalProject)
 
 option(USE_TCMALLOC "Use the tcmalloc library" ON)
+option(USE_ASAN "Run with the address sanitizer" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
@@ -16,7 +17,13 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wl,--whole-archive -lpthread -Wl,--no-whole-archive")
 endif()
 
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+# Run with: ASAN_OPTIONS=symbolize=1 ASAN_SYMBOLIZER_PATH=$(shell which llvm-symbolizer)
+set(ASAN_CXX_FLAGS "-O -g -lasan -fsanitize=address -fno-omit-frame-pointer")
+if (USE_ASAN)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ASAN_CXX_FLAGS}")
+endif()
+
+set(CMAKE_CXX_FLAGS_DEBUG "${ASAN_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 set(EXECUTABLE_OUTPUT_PATH "${PROJECT_BINARY_DIR}/bin")
 set(LIBRARY_OUTPUT_PATH "${PROJECT_BINARY_DIR}/lib")
@@ -89,7 +96,7 @@ set_target_properties(gzstream PROPERTIES
     IMPORTED_LOCATION_NOCONFIG "${GZSTREAM_LIBRARY}")
 add_dependencies(gzstream build_gzstream)
 
-if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND NOT USE_ASAN)
     set(CMAKE_CXX_LINK_EXECUTABLE "${CMAKE_CXX_LINK_EXECUTABLE} -static")
 endif()
 
@@ -99,7 +106,10 @@ else()
     set(MALLOC_LIBRARY libjemalloc)
 endif()
 
+
 message(STATUS "Malloc library: ${MALLOC_LIBRARY}")
+message(STATUS "Use ASAN: ${USE_ASAN}")
+
 
 add_executable(Fluorine
     src/Fluorine.cpp
