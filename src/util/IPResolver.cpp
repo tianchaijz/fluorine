@@ -113,13 +113,20 @@ bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
   uint max_comp_len = offset_ - 1028;
   uint index_offset = 0;
   uint index_length = 0;
-  for (start = start * 8 + 1024; start < max_comp_len; start += 8) {
-    if (B2IU(index_ + start) >= ip_long) {
-      index_offset = B2IL(index_ + start + 4) & 0x00FFFFFF;
-      index_length = index_[start + 7];
-      break;
+
+  uint lo = start * 8 + 1024;
+  uint hi = max_comp_len;
+  while (lo < hi) {
+    uint mid = lo + (hi - lo) / 16 * 8;
+    if (B2IU(index_ + mid) < ip_long) {
+      lo = mid + 8;
+    } else {
+      hi = mid;
     }
   }
+
+  index_offset = B2IL(index_ + lo + 4) & 0x00FFFFFF;
+  index_length = index_[lo + 7];
 
   if (index_length > ResultLengthMax) {
     logger->error("index length too big: {}", index_length);
