@@ -46,8 +46,8 @@ IPResolver::IPResolver(const char *db_path) {
   ASSERT(size > 0);
   fseek(fd, 0, SEEK_SET);
 
-  data_        = (byte *)malloc(size * sizeof(byte));
-  size_t count = fread(data_, sizeof(byte), size, fd);
+  data_        = (byte *)malloc(size);
+  size_t count = fread(data_, 1, size, fd);
   fclose(fd);
 
   ASSERT(count > 512 * sizeof(uint));
@@ -56,7 +56,7 @@ IPResolver::IPResolver(const char *db_path) {
 }
 
 IPResolver::IPResolver(const char *db_data, const size_t db_size) {
-  data_ = (byte *)malloc(db_size * sizeof(byte));
+  data_ = (byte *)malloc(db_size);
   memcpy(data_, db_data, db_size);
   Init();
 }
@@ -64,8 +64,6 @@ IPResolver::IPResolver(const char *db_data, const size_t db_size) {
 IPResolver::~IPResolver() {
   if (offset_) {
     offset_ = 0;
-    free(flag_);
-    free(index_);
     free(data_);
   }
 }
@@ -100,25 +98,24 @@ bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
     return true;
   }
 
-  std::vector<uint> ips;
+  std::vector<uint8_t> ips;
   ips.reserve(4);
   bool ok = boost::spirit::qi::parse(ip.begin(), ip.end(), g, ips);
   if (!ok) {
     return false;
   }
 
-  uint ip_prefix    = ips[0];
-  uint ip_long      = B2IU(ips);
-  uint start        = flag_[ip_prefix];
-  uint max_comp_len = offset_ - 1028;
-  uint index_offset = 0;
-  uint index_length = 0;
+  uint32_t ip_int       = B2IU(ips);
+  uint32_t start        = flag_[ips[0]];
+  uint32_t max_comp_len = offset_ - 1028;
+  uint32_t index_offset = 0;
+  uint32_t index_length = 0;
 
-  uint lo = start * 8 + 1024;
-  uint hi = max_comp_len;
+  uint32_t lo = start * 8 + 1024;
+  uint32_t hi = max_comp_len;
   while (lo < hi) {
-    uint mid = lo + (hi - lo) / 16 * 8;
-    if (B2IU(index_ + mid) < ip_long) {
+    uint32_t mid = lo + (hi - lo) / 16 * 8;
+    if (B2IU(index_ + mid) < ip_int) {
       lo = mid + 8;
     } else {
       hi = mid;
@@ -127,11 +124,6 @@ bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
 
   index_offset = B2IL(index_ + lo + 4) & 0x00FFFFFF;
   index_length = index_[lo + 7];
-
-  if (index_length > ResultLengthMax) {
-    logger->error("index length too big: {}", index_length);
-    return false;
-  }
 
   memcpy(buf, data_ + offset_ + index_offset - 1024, index_length);
   buf[index_length] = '\0';
@@ -161,16 +153,12 @@ bool IPResolver::Resolve(const std::string &ip, ResultType **result) {
 }
 
 void IPResolver::Init() {
-  uint length = B2IU(data_);
+  uint32_t length = B2IU(data_);
   ASSERT(length > 0 && length < 16777216);
 
-  index_ = (byte *)malloc(length * sizeof(byte));
-  memcpy(index_, data_ + 4, length);
-
   offset_ = length;
-
-  flag_ = (uint *)malloc(256 * sizeof(uint));
-  memcpy(flag_, index_, 256 * sizeof(uint));
+  index_  = data_ + 4;
+  flag_   = reinterpret_cast<uint32_t *>(index_);
 }
 
 } // namespace util

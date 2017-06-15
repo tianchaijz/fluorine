@@ -17,10 +17,8 @@ public:
   using ResultType   = std::vector<std::string>;
 
   typedef unsigned char byte;
-  typedef unsigned int uint;
-  typedef unsigned char uchar;
 
-  static const int ResultLengthMax = 256;
+  static const int ResultLengthMax = UCHAR_MAX;
   static const int FieldNumber     = 5;
   static const size_t LRUCapacity  = 32768;
   static ResultType UnknownResult;
@@ -39,11 +37,11 @@ private:
   DISALLOW_COPY_AND_ASSIGN(IPResolver);
   void Init();
 
-  byte *data_  = nullptr;
-  byte *index_ = nullptr;
-  uint *flag_  = nullptr;
-  uint offset_ = 0;
-  LRUType lru_ = LRUType(LRUCapacity);
+  byte *data_      = nullptr;
+  byte *index_     = nullptr;
+  uint32_t *flag_  = nullptr;
+  uint32_t offset_ = 0;
+  LRUType lru_     = LRUType(LRUCapacity);
 };
 
 void InitIPResolver(const std::string &db_path);
