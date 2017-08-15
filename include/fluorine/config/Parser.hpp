@@ -23,10 +23,10 @@ typedef std::vector<Attribute> Attributes;
 typedef std::string::const_iterator iterator_type;
 
 struct Aggregation {
-  std::string key_;
+  std::vector<std::string> keys_;
   std::string time_;
   int interval_;
-  boost::optional<std::vector<std::string>> fields_;
+  boost::optional<std::vector<std::string>> terms_;
 };
 
 struct Config {
@@ -54,21 +54,21 @@ struct Grammar : qi::grammar<Iterator, Config(), Skipper<Iterator>> {
 
     quoted = '"' >> *("\\" >> char_('"') | ~char_('"')) >> '"';
     name   = quoted | +char_("a-zA-Z0-9_");
-    elem   = '[' >> (name % ',') >> ']';
+    list   = '[' >> (name % ',') >> ']';
 
-    attribute   = name >> ':' >> elem >> ';';
-    attributes  = '{' >> *attribute >> '}';
-    aggregation = '(' >> name >> ',' >> name >> ',' >> int_ >> ')' >>
-                  -('[' >> (name % ',') >> ']');
+    attribute  = name >> ':' >> list >> ';';
+    attributes = '{' >> *attribute >> '}';
+    aggregation =
+        '(' >> (name | list) >> ',' >> name >> ',' >> int_ >> ')' >> -list;
     config = name >> '(' >> int_ >> ',' >> int_ >> ',' >> int_ >> ')' >>
              attributes >> -aggregation;
 
-    BOOST_SPIRIT_DEBUG_NODES((name)(elem)(attribute)(attributes)(aggregation));
+    BOOST_SPIRIT_DEBUG_NODES((name)(list)(attribute)(attributes)(aggregation));
   }
 
 private:
   qi::rule<Iterator, std::string(), qi::no_skip_type> quoted, name;
-  qi::rule<Iterator, std::vector<std::string>(), Skipper<Iterator>> elem;
+  qi::rule<Iterator, std::vector<std::string>(), Skipper<Iterator>> list;
   qi::rule<Iterator, Attribute(), Skipper<Iterator>> attribute;
   qi::rule<Iterator, Attributes(), Skipper<Iterator>> attributes;
   qi::rule<Iterator, Aggregation(), Skipper<Iterator>> aggregation;
@@ -95,8 +95,8 @@ BOOST_FUSION_ADAPT_STRUCT(fluorine::config::Attribute,
     (std::vector<std::string>, attribute_))
 
 BOOST_FUSION_ADAPT_STRUCT(fluorine::config::Aggregation,
-    (std::string, key_)
+    (std::vector<std::string>, keys_)
     (std::string, time_)
     (int, interval_)
-    (boost::optional<std::vector<std::string>>, fields_))
+    (boost::optional<std::vector<std::string>>, terms_))
 // clang-format on

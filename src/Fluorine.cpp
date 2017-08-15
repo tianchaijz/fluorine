@@ -110,7 +110,7 @@ inline void hash_combine(std::size_t &seed, const T &v) {
 void agg(std::string backend_ip, unsigned short backend_port,
          const Config &config, std::string path) {
   auto aggregation = config.aggregation_;
-  auto agg_key     = aggregation->key_.c_str();
+  auto agg_keys    = aggregation->keys_;
   auto event_loop  = snet::CreateEventLoop(1000000);
   snet::TimerList timer_list;
   Frontend frontend(backend_ip, backend_port, event_loop.get(), &timer_list);
@@ -119,11 +119,13 @@ void agg(std::string backend_ip, unsigned short backend_port,
   std::set<std::string> store_set;
   std::set<std::string> ignore_set;
 
-  if (aggregation->fields_) {
-    store_set.insert(aggregation->key_);
+  if (aggregation->terms_) {
+    for (auto &key : agg_keys) {
+      store_set.insert(key);
+    }
     store_set.insert(aggregation->time_);
-    for (auto &f : *aggregation->fields_) {
-      store_set.insert(f);
+    for (auto &term : *aggregation->terms_) {
+      store_set.insert(term);
     }
   }
 
@@ -186,13 +188,26 @@ void agg(std::string backend_ip, unsigned short backend_port,
     }
   };
 
-  LRUType::OnAggregation oa = [agg_key](std::unique_ptr<Document> &lhs,
-                                        std::unique_ptr<Document> &rhs) {
+  LRUType::OnAggregation oa = [agg_keys](std::unique_ptr<Document> &lhs,
+                                         std::unique_ptr<Document> &rhs) {
     rapidjson::Value &count = (*lhs)["count"];
     count.SetInt64(count.GetInt64() + 1);
 
-    rapidjson::Value &v = (*lhs)[agg_key];
-    v.SetInt64(v.GetInt64() + (*rhs)[agg_key].GetInt64());
+    for (auto &key : agg_keys) {
+      auto k = key.c_str();
+
+      rapidjson::Value &l = (*lhs)[k];
+      rapidjson::Value &r = (*rhs)[k];
+
+      // XXX: only support aggregation on int64 and double type
+      if (l.IsNumber() && l.GetType() == r.GetType()) {
+        if (l.IsInt64()) {
+          l.SetInt64(l.GetInt64() + r.GetInt64());
+        } else if (l.IsDouble()) {
+          l.SetDouble(l.GetDouble() + r.GetDouble());
+        }
+      }
+    }
   };
 
   LRUType::OnEvict oe = [&frontend, &send](std::unique_ptr<Document> &doc) {
@@ -212,9 +227,9 @@ void agg(std::string backend_ip, unsigned short backend_port,
   };
 
   auto hash = [&aggregation](size_t &seed, std::unique_ptr<Document> &doc) {
-    if (aggregation->fields_) {
-      for (auto f : *aggregation->fields_) {
-        Value &v = (*doc)[f.c_str()];
+    if (aggregation->terms_) {
+      for (auto term : *aggregation->terms_) {
+        Value &v = (*doc)[term.c_str()];
         if (v.IsString())
           hash_combine(seed, std::string(v.GetString()));
         else if (v.IsInt())
@@ -224,7 +239,8 @@ void agg(std::string backend_ip, unsigned short backend_port,
         else if (v.IsDouble())
           hash_combine(seed, v.GetDouble());
         else {
-          logger->error("unexpected value type: {}, key: {}", v.GetType(), f);
+          logger->error("unexpected value type: {}, term: {}", v.GetType(),
+                        term);
           return false;
         }
       }
@@ -347,7 +363,7 @@ void cycle(std::string path, Option &opt, Config &cfg) {
                aggre, total == 0 ? 0 : aggre * 100.0 / total);
 }
 
-void fix_config(Config &cfg, bool see = false) {
+void fix_config(Config &cfg, bool show = false) {
   if (!cfg.aggregation_) {
     return;
   }
@@ -359,15 +375,25 @@ void fix_config(Config &cfg, bool see = false) {
     }
   }
 
-  if (!see) {
+  if (!show) {
     return;
   }
 
-  auto info = fmt::format("aggregation: {}, {}, {}", agg->key_, agg->time_,
+  std::stringstream ss;
+  ss << "[";
+  for (size_t i = 0; i < agg->keys_.size(); ++i) {
+    if (i != 0) {
+      ss << ",";
+    }
+    ss << agg->keys_[i];
+  }
+  ss << "]";
+
+  auto info = fmt::format("aggregation: {}, {}, {}", ss.str(), agg->time_,
                           agg->interval_);
   std::cout << info << std::endl;
-  if (agg->fields_) {
-    for (auto f : *agg->fields_) {
+  if (agg->terms_) {
+    for (auto f : *agg->terms_) {
       std::cout << fmt::format("{}, ", f);
     }
     std::cout << std::endl;
