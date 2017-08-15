@@ -235,7 +235,7 @@ inline bool time_date_handler(Document &doc, string k, string s) {
   return true;
 }
 
-// request handler, like: "GET http:://foo.com/bar"
+// request handler, like: "GET http://foo.com/bar"
 inline bool request_handler(Document &doc, string, string s) {
   static RequestGrammar<> g;
   Request request;
