@@ -295,7 +295,7 @@ void agg(snet::EventLoop *event_loop, Frontend *frontend, std::string path,
       if (frontend->SendComplete()) {
         event_loop->Stop();
         event_loop->DelLoopHandler(&timer_driver);
-        logger->info("event loop stopped");
+        logger->info("cycle completed");
         return;
       }
     } else {
@@ -347,6 +347,9 @@ void cycle(snet::EventLoop *event_loop, Frontend *frontend, std::string path,
            Config &cfg) {
   TimerGuard tg;
   std::thread loop_thread;
+
+  event_loop->Ready();
+
   if (cfg.aggregation_) {
     loop_thread =
         std::thread(std::bind(agg, event_loop, frontend, path, std::cref(cfg)));
