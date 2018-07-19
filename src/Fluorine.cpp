@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <chrono>
 #include <thread>
+#include <atomic>
 #include <fstream>
 #include <algorithm>
 #include <functional>
@@ -45,17 +46,13 @@ static lockfree::spsc_queue<std::string, lockfree::capacity<32768>> queue;
 static unsigned long long lines = 0;
 static unsigned long long total = 0;
 static unsigned long long aggre = 0;
-static bool done                = false;
+static std::atomic<bool> done(false);
 
-void loop(std::string backend_ip, unsigned short backend_port,
-          const Config &config, std::string path) {
-  auto event_loop = snet::CreateEventLoop(1000000);
-  snet::TimerList timer_list;
-  Frontend frontend(backend_ip, backend_port, event_loop.get(), &timer_list);
-
+void loop(snet::EventLoop *event_loop, Frontend *frontend, std::string path,
+          const Config &config) {
   auto handler = [&frontend, &config, path]() {
     std::string line;
-    while (frontend.CanSend() && queue.pop(line)) {
+    while (frontend->CanSend() && queue.pop(line)) {
       Log log;
       if (!ParseLog(line, log, config.field_number_, config.time_index_)) {
         continue;
@@ -77,16 +74,21 @@ void loop(std::string backend_ip, unsigned short backend_port,
       std::copy(json.begin(), json.end(), ch);
       std::unique_ptr<snet::Buffer> data(
           new snet::Buffer(ch, json.size() + 1, snet::OpDeleter));
-      frontend.Send(std::move(data));
+      frontend->Send(std::move(data));
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   };
 
+  snet::TimerList timer_list;
   snet::Timer send_timer(&timer_list);
-  auto callback = [&event_loop, &send_timer, &handler, &frontend]() {
+  snet::TimerDriver timer_driver(timer_list);
+
+  auto callback = [&event_loop, &send_timer, &timer_driver, &handler,
+                   &frontend]() {
     if (done && queue.empty()) {
-      if (frontend.SendComplete()) {
+      if (frontend->SendComplete()) {
         event_loop->Stop();
+        event_loop->DelLoopHandler(&timer_driver);
         return;
       }
     } else {
@@ -94,9 +96,9 @@ void loop(std::string backend_ip, unsigned short backend_port,
     }
     send_timer.ExpireFromNow(snet::Milliseconds(1));
   };
+
   send_timer.ExpireFromNow(snet::Milliseconds(0));
   send_timer.SetOnTimeout(callback);
-  snet::TimerDriver timer_driver(timer_list);
   event_loop->AddLoopHandler(&timer_driver);
   event_loop->Loop();
 }
@@ -107,13 +109,14 @@ inline void hash_combine(std::size_t &seed, const T &v) {
   seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-void agg(std::string backend_ip, unsigned short backend_port,
-         const Config &config, std::string path) {
+void agg(snet::EventLoop *event_loop, Frontend *frontend, std::string path,
+         const Config &config) {
   auto aggregation = config.aggregation_;
   auto agg_keys    = aggregation->keys_;
-  auto event_loop  = snet::CreateEventLoop(1000000);
+
   snet::TimerList timer_list;
-  Frontend frontend(backend_ip, backend_port, event_loop.get(), &timer_list);
+  snet::Timer send_timer(&timer_list);
+  snet::TimerDriver timer_driver(timer_list);
 
   std::vector<std::string> diff;
   std::set<std::string> store_set;
@@ -175,7 +178,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
     std::copy(json.begin(), json.end(), ch);
     std::unique_ptr<snet::Buffer> data(
         new snet::Buffer(ch, json.size() + 1, snet::OpDeleter));
-    frontend.Send(std::move(data));
+    frontend->Send(std::move(data));
   };
 
   LRUType::OnInsert oi = [path](std::unique_ptr<Document> &doc) {
@@ -210,14 +213,14 @@ void agg(std::string backend_ip, unsigned short backend_port,
     }
   };
 
-  LRUType::OnEvict oe = [&frontend, &send](std::unique_ptr<Document> &doc) {
+  LRUType::OnEvict oe = [&send](std::unique_ptr<Document> &doc) {
     rapidjson::Value &count = (*doc)["count"];
     total += count.GetInt64();
     ++aggre;
     send(doc);
   };
 
-  LRUType::OnClear oc = [&frontend, &send](LRUType::map_type &m) {
+  LRUType::OnClear oc = [&send](LRUType::map_type &m) {
     for (auto &p : m) {
       rapidjson::Value &count = (*p.second.first)["count"];
       total += count.GetInt64();
@@ -253,7 +256,7 @@ void agg(std::string backend_ip, unsigned short backend_port,
   auto handler = [&frontend, &config, &hash, &lru, &clean_doc, &path]() {
     std::string line;
     int interval = config.aggregation_->interval_;
-    while (frontend.CanSend() && queue.pop(line)) {
+    while (frontend->CanSend() && queue.pop(line)) {
       Log log;
       if (!ParseLog(line, log, config.field_number_, config.time_index_)) {
         logger->warn("{}, bad log: {}", path, line);
@@ -285,12 +288,13 @@ void agg(std::string backend_ip, unsigned short backend_port,
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   };
 
-  snet::Timer send_timer(&timer_list);
-  auto callback = [&event_loop, &send_timer, &handler, &lru, &frontend]() {
+  auto callback = [&event_loop, &send_timer, &timer_driver, &handler, &lru,
+                   &frontend]() {
     if (done && queue.empty()) {
       lru.clear();
-      if (frontend.SendComplete()) {
+      if (frontend->SendComplete()) {
         event_loop->Stop();
+        event_loop->DelLoopHandler(&timer_driver);
         logger->info("event loop stopped");
         return;
       }
@@ -299,9 +303,9 @@ void agg(std::string backend_ip, unsigned short backend_port,
     }
     send_timer.ExpireFromNow(snet::Milliseconds(1));
   };
+
   send_timer.ExpireFromNow(snet::Milliseconds(0));
   send_timer.SetOnTimeout(callback);
-  snet::TimerDriver timer_driver(timer_list);
   event_loop->AddLoopHandler(&timer_driver);
   event_loop->Loop();
 }
@@ -339,15 +343,16 @@ void gzip_producer(std::string path) {
   produce(is);
 }
 
-void cycle(std::string path, Option &opt, Config &cfg) {
+void cycle(snet::EventLoop *event_loop, Frontend *frontend, std::string path,
+           Config &cfg) {
   TimerGuard tg;
   std::thread loop_thread;
   if (cfg.aggregation_) {
-    loop_thread = std::thread(std::bind(agg, opt.backend_ip_, opt.backend_port_,
-                                        std::cref(cfg), path));
+    loop_thread =
+        std::thread(std::bind(agg, event_loop, frontend, path, std::cref(cfg)));
   } else {
-    loop_thread = std::thread(std::bind(
-        loop, opt.backend_ip_, opt.backend_port_, std::cref(cfg), path));
+    loop_thread = std::thread(
+        std::bind(loop, event_loop, frontend, path, std::cref(cfg)));
   }
 
   if (boost::algorithm::ends_with(path, ".gz")) {
@@ -408,12 +413,16 @@ int main(int argc, char *argv[]) {
 
   InitIPResolver(opt.ip_db_path_);
 
+  auto event_loop = snet::CreateEventLoop(1000000);
+  snet::TimerList timer_list;
+  Frontend frontend(opt.backend_ip_, opt.backend_port_, event_loop.get(),
+                    timer_list);
+
   if (opt.IsTcpInput()) {
-    auto event_loop = snet::CreateEventLoop(1000000);
     snet::TimerList timer_list;
     snet::TimerDriver timer_driver(timer_list);
     FrontendTcp ft(opt.frontend_ip_, opt.frontend_port_, opt.backend_ip_,
-                   opt.backend_port_, event_loop.get(), &timer_list);
+                   opt.backend_port_, event_loop.get(), timer_list);
     event_loop->AddLoopHandler(&timer_driver);
     event_loop->Loop();
   } else if (opt.IsRedisInput()) {
@@ -451,7 +460,7 @@ int main(int argc, char *argv[]) {
 
         fix_config(cfg);
         done = false;
-        cycle(path.GetString(), opt, cfg);
+        cycle(event_loop.get(), &frontend, path.GetString(), cfg);
       } else {
         std::this_thread::sleep_for(std::chrono::seconds(2));
       }
@@ -462,7 +471,7 @@ int main(int argc, char *argv[]) {
       return 1;
     }
     fix_config(cfg);
-    cycle(opt.log_path_, opt, cfg);
+    cycle(event_loop.get(), &frontend, opt.log_path_, cfg);
   }
 
   return 0;

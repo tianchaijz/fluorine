@@ -188,7 +188,7 @@ FrontendTcp::FrontendTcp(const std::string &frontend_ip,
                          unsigned short frontend_port,
                          const std::string &backend_ip,
                          unsigned short backend_port, snet::EventLoop *loop,
-                         snet::TimerList *timer_list)
+                         snet::TimerList &timer_list)
     : id_generator_(0), frontend_(backend_ip, backend_port, loop, timer_list),
       server_(frontend_ip, frontend_port, loop) {
   server_.DisableAccept();

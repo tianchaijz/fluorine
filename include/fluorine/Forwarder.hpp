@@ -81,11 +81,15 @@ public:
   using OnTunnelConnected = std::function<void()>;
 
   Frontend(const std::string &backend_ip, unsigned short backend_port,
-           snet::EventLoop *loop, snet::TimerList *timer_list)
+           snet::EventLoop *loop, snet::TimerList &timer_list)
       : backend_port_(backend_port), backend_ip_(backend_ip), loop_(loop),
-        backend_reconnect_timer_(timer_list), enable_send_(false) {
+        backend_reconnect_timer_(&timer_list), timer_driver_(timer_list),
+        enable_send_(false) {
+    loop_->AddLoopHandler(&timer_driver_);
     CreateTunnel();
   }
+
+  ~Frontend() { loop_->DelLoopHandler(&timer_driver_); }
 
   Frontend(const Frontend &) = delete;
   void operator=(const Frontend &) = delete;
@@ -120,6 +124,7 @@ private:
   snet::EventLoop *loop_;
 
   snet::Timer backend_reconnect_timer_;
+  snet::TimerDriver timer_driver_;
   std::unique_ptr<Backend> backend_;
   bool enable_send_;
 };
@@ -178,7 +183,7 @@ class FrontendTcp final {
 public:
   FrontendTcp(const std::string &frontend_ip, unsigned short frontend_port,
               const std::string &backend_ip, unsigned short backend_port,
-              snet::EventLoop *loop, snet::TimerList *timer_list);
+              snet::EventLoop *loop, snet::TimerList &timer_list);
 
   FrontendTcp(const FrontendTcp &) = delete;
   void operator=(const FrontendTcp &) = delete;
