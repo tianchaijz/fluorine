@@ -10,4 +10,9 @@ add_executable(t_json
 add_executable(t_gzip
     t_gzip.cpp
     )
+
+add_executable(t_spirit
+    t_spirit.cpp
+    )
+
 target_link_libraries(t_gzip ${BOOSTIOS_LIBRARY} z)
